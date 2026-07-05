@@ -35,6 +35,8 @@ body {
     width: 100%;
     height: 100vh;
     max-width: 1400px;
+    position: relative;
+    z-index: 1;
 }
 
 @media (min-width: 768px) {
@@ -954,14 +956,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .home-backdrop {
-    position: absolute;
-    top: -10%;
-    left: -10%;
-    width: 120%;
-    height: 120%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     background-size: cover;
     background-position: center;
-    filter: blur(50px) brightness(0.25) saturate(1.4);
+    filter: blur(60px) brightness(0.18) saturate(1.4);
     opacity: 0;
     transition: background-image 1.2s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 1.5s ease;
     z-index: 0;
