@@ -404,7 +404,53 @@ function loadSong(index) {
     
     updateLikeButtonState();
     updateDownloadButtonState();
+    updateMediaSession();
 }
+
+// Media Session API for background playing and notification control
+function updateMediaSession() {
+    if ('mediaSession' in navigator && songs[currentSongIndex]) {
+        const song = songs[currentSongIndex];
+        let artworkUrl = song.image || 'file_000000004ed071fb8190e340809155c9.png';
+        if (song.imageBlob) {
+            artworkUrl = URL.createObjectURL(song.imageBlob);
+        }
+        
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: song.title,
+            artist: song.artist,
+            album: 'Haadio Music',
+            artwork: [
+                { src: artworkUrl, sizes: '96x96', type: 'image/png' },
+                { src: artworkUrl, sizes: '128x128', type: 'image/png' },
+                { src: artworkUrl, sizes: '192x192', type: 'image/png' },
+                { src: artworkUrl, sizes: '256x256', type: 'image/png' },
+                { src: artworkUrl, sizes: '384x384', type: 'image/png' },
+                { src: artworkUrl, sizes: '512x512', type: 'image/png' }
+            ]
+        });
+    }
+}
+
+function setupMediaSessionHandlers() {
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', () => {
+            playSong();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            pauseSong();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            prevSong();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            nextSong();
+        });
+    }
+}
+
+// Initialize handlers
+setupMediaSessionHandlers();
 
 function togglePlay() {
     if (songs.length === 0) return;
@@ -420,7 +466,11 @@ function playSong() {
     isPlaying = true;
     playBtn.innerHTML = '<i class="fas fa-pause"></i>';
     record.classList.add('playing');
-    audio.play().catch(e => {
+    audio.play().then(() => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = "playing";
+        }
+    }).catch(e => {
         console.error("Playback failed", e);
         pauseSong();
     });
@@ -431,6 +481,9 @@ function pauseSong() {
     playBtn.innerHTML = '<i class="fas fa-play"></i>';
     record.classList.remove('playing');
     audio.pause();
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = "paused";
+    }
 }
 
 function prevSong() {
