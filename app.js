@@ -103,10 +103,12 @@ const sections = {
 
 navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-        navBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
         const target = btn.getAttribute('data-target');
+        
+        // Remove active class from all buttons and sync selected target across views
+        navBtns.forEach(b => b.classList.remove('active'));
+        document.querySelectorAll(`.nav-btn[data-target="${target}"]`).forEach(b => b.classList.add('active'));
+        
         Object.values(sections).forEach(sec => sec.classList.add('hidden'));
         sections[target].classList.remove('hidden');
         

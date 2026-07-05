@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Haadio - Retro Music Player</title>
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="file_000000004ed071fb8190e340809155c9.png">
     <meta name="theme-color" content="#1e222a">
@@ -139,10 +139,17 @@
                 </div>
             </section>
         </main>
+        <!-- Bottom Navigation Bar for Mobile -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-target="home"><i class="fas fa-compact-disc"></i> <span>Player</span></button>
+            <button class="nav-btn" data-target="playlist"><i class="fas fa-list"></i> <span>Tracks</span></button>
+            <button class="nav-btn" data-target="favorites"><i class="fas fa-heart"></i> <span>Liked</span></button>
+            <button class="nav-btn" data-target="downloads"><i class="fas fa-arrow-down"></i> <span>Downloads</span></button>
+        </nav>
     </div>
     
     <audio id="audio-player"></audio>
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

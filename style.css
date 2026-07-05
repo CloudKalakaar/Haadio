@@ -871,5 +871,77 @@ input[type="range"]::-webkit-slider-thumb:hover {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* Bottom Navigation Styles */
+.bottom-nav {
+    display: none;
+}
 
+@media (max-width: 767px) {
+    .header .nav-links {
+        display: none;
+    }
+    
+    /* Make the top header only center the logo */
+    .header {
+        justify-content: center;
+        padding: 0.8rem;
+    }
 
+    .bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 65px;
+        background: rgba(11, 12, 16, 0.96); /* Matches --bg-color */
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-top: 1px solid var(--radio-border);
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        padding: 0 10px;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    }
+    
+    .bottom-nav .nav-btn {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #9ba0a6;
+        transition: color 0.2s, transform 0.2s;
+    }
+    
+    .bottom-nav .nav-btn i {
+        font-size: 1.25rem;
+    }
+    
+    .bottom-nav .nav-btn:hover {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+    
+    .bottom-nav .nav-btn.active {
+        color: var(--primary-color);
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+
+    /* Give page contents padding at the bottom so they aren't covered by bottom-nav */
+    .app-container {
+        padding-bottom: 70px;
+    }
+}
