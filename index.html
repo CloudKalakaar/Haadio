@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Haadio - Retro Music Player</title>
+    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="file_000000004ed071fb8190e340809155c9.png">
+    <meta name="theme-color" content="#1e222a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Haadio">
+    <link rel="apple-touch-icon" sizes="180x180" href="file_000000004ed071fb8190e340809155c9.png">
+    
+    <!-- Google Fonts for Retro/Modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Topbar depending on screen -->
+        <header class="header">
+            <div class="logo">
+                <img src="file_000000004ed071fb8190e340809155c9.png" alt="Haadio Logo">
+                <h1>Haadio</h1>
+            </div>
+            <nav class="nav-links">
+                <button class="nav-btn active" data-target="home"><i class="fas fa-compact-disc"></i> Player</button>
+                <button class="nav-btn" data-target="playlist"><i class="fas fa-list"></i> Tracks</button>
+                <button class="nav-btn" data-target="favorites"><i class="fas fa-heart"></i> Liked</button>
+                <button class="nav-btn" data-target="downloads"><i class="fas fa-arrow-down"></i> Downloads</button>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <!-- Playlist Section -->
+            <section class="playlist-section hidden" id="playlist">
+                <h2>Featured Tracks</h2>
+                
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Search songs, artists, albums...">
+                    <button id="search-btn">Search</button>
+                </div>
+                
+                <div class="category-filters" id="category-filters">
+                    <button class="cat-btn active" data-query="trending">Trending</button>
+                    <button class="cat-btn" data-query="kannada">Kannada</button>
+                    <button class="cat-btn" data-query="hindi">Hindi</button>
+                    <button class="cat-btn" data-query="telugu">Telugu</button>
+                    <button class="cat-btn" data-query="tamil">Tamil</button>
+                    <button class="cat-btn" data-query="english">English Pop</button>
+                    <button class="cat-btn" data-query="hip hop">Hip Hop</button>
+                </div>
+
+                <!-- Albums/Movies Results (hidden if empty) -->
+                <div class="albums-section hidden" id="albums-section">
+                    <h3>Albums & Movies</h3>
+                    <div class="albums-grid" id="albums-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <h3 id="songs-section-title" style="display: none; font-size: 1.4rem; margin-bottom: 1rem; color: #fff; font-family: 'Outfit', sans-serif; border-left: 4px solid var(--primary-color); padding-left: 10px;">Songs</h3>
+                <div class="playlist-grid" id="playlist-container">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Favorites Section -->
+            <section class="playlist-section hidden" id="favorites">
+                <h2>My Liked Songs</h2>
+                <div class="playlist-grid" id="favorites-container">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Downloads Section -->
+            <section class="playlist-section hidden" id="downloads">
+                <h2>Downloaded Songs</h2>
+                <div class="playlist-grid" id="downloads-container">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+
+            <!-- Player Section -->
+            <section class="player-section" id="home">
+                <div class="radio-box">
+                    <div class="speaker-grill left">
+                        <div class="speaker-cone"></div>
+                    </div>
+                    
+                    <div class="center-console">
+                        <!-- Retro Tuner Screen -->
+                        <div class="tuner-display">
+                            <div class="now-playing-info">
+                                <div class="marquee-wrapper">
+                                    <h3 id="track-title">Loading...</h3>
+                                </div>
+                                <div class="marquee-wrapper">
+                                    <p id="track-artist">Haadio</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cassette / Vinyl Record Element -->
+                        <div class="cassette-container">
+                            <div class="record" id="record">
+                                <div class="record-center">
+                                    <div class="record-label">
+                                        <span id="label-title">HAADIO</span>
+                                    </div>
+                                    <div class="record-hole"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="controls">
+                            <div class="progress-container">
+                                <span id="current-time">0:00</span>
+                                <input type="range" id="progress-bar" value="0" min="0" max="100" step="0.1">
+                                <span id="total-time">0:00</span>
+                            </div>
+                            <div class="buttons">
+                                <button class="control-btn" id="like-btn"><i class="far fa-heart"></i></button>
+                                <button class="control-btn" id="prev-btn"><i class="fas fa-backward-step"></i></button>
+                                <button class="control-btn play-btn" id="play-btn"><i class="fas fa-play"></i></button>
+                                <button class="control-btn" id="next-btn"><i class="fas fa-forward-step"></i></button>
+                                <button class="control-btn" id="download-btn"><i class="fas fa-download"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="speaker-grill right">
+                        <div class="speaker-cone"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <audio id="audio-player"></audio>
+    <script src="app.js?v=7"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    console.log('Service Worker registered');
+                    
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('New update installed, reloading...');
+                                window.location.reload();
+                            }
+                        });
+                    });
+                }).catch(err => {
+                    console.log('Service Worker registration failed', err);
+                });
+            });
+            
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
