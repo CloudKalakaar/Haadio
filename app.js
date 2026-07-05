@@ -484,11 +484,13 @@ function renderPlaylist() {
         const card = document.createElement('div');
         card.className = 'song-card';
         card.innerHTML = `
-            <div class="song-icon" style="${song.image ? `background-image: url('${song.image}'); background-size: cover;` : ''}">
-                ${song.image ? '' : '<i class="fas fa-music"></i>'}
+            <div class="song-icon" style="${song.image ? \`background-image: url('\${song.image}'); background-size: cover;\` : ''}">
+                \${song.image ? '' : '<i class="fas fa-music"></i>'}
             </div>
-            <h4 title="${song.title}">${song.title.length > 20 ? song.title.substring(0,20)+'...' : song.title}</h4>
-            <p title="${song.artist}">${song.artist.length > 20 ? song.artist.substring(0,20)+'...' : song.artist}</p>
+            <div class="song-details">
+                <h4 title="\${song.title}">\${song.title}</h4>
+                <p title="\${song.artist}">\${song.artist}</p>
+            </div>
         `;
         card.addEventListener('click', () => {
             currentSongIndex = index;
@@ -583,11 +585,13 @@ function renderFavorites() {
         const card = document.createElement('div');
         card.className = 'song-card';
         card.innerHTML = `
-            <div class="song-icon" style="${song.image ? `background-image: url('${song.image}'); background-size: cover;` : ''}">
-                ${song.image ? '' : '<i class="fas fa-music"></i>'}
+            <div class="song-icon" style="${song.image ? \`background-image: url('\${song.image}'); background-size: cover;\` : ''}">
+                \${song.image ? '' : '<i class="fas fa-music"></i>'}
             </div>
-            <h4 title="${song.title}">${song.title.length > 20 ? song.title.substring(0,20)+'...' : song.title}</h4>
-            <p title="${song.artist}">${song.artist.length > 20 ? song.artist.substring(0,20)+'...' : song.artist}</p>
+            <div class="song-details">
+                <h4 title="\${song.title}">\${song.title}</h4>
+                <p title="\${song.artist}">\${song.artist}</p>
+            </div>
         `;
         card.addEventListener('click', () => {
             songs = [...likedSongs];
@@ -692,11 +696,13 @@ function renderDownloads() {
             }
             
             card.innerHTML = `
-                <div class="song-icon" style="${imgStyle}">
-                    ${song.imageBlob || song.image ? '' : '<i class="fas fa-music"></i>'}
+                <div class="song-icon" style="\${imgStyle}">
+                    \${song.imageBlob || song.image ? '' : '<i class="fas fa-music"></i>'}
                 </div>
-                <h4 title="${song.title}">${song.title.length > 20 ? song.title.substring(0,20)+'...' : song.title}</h4>
-                <p title="${song.artist}">${song.artist.length > 20 ? song.artist.substring(0,20)+'...' : song.artist}</p>
+                <div class="song-details">
+                    <h4 title="\${song.title}">\${song.title}</h4>
+                    <p title="\${song.artist}">\${song.artist}</p>
+                </div>
             `;
             card.addEventListener('click', () => {
                 songs = [...offlineList];
