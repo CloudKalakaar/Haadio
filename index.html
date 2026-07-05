@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Haadio - Retro Music Player</title>
-    <link rel="stylesheet" href="style.css?v=14">
+    <link rel="stylesheet" href="style.css?v=21">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="file_000000004ed071fb8190e340809155c9.png">
     <meta name="theme-color" content="#1e222a">
@@ -32,7 +32,7 @@
             <nav class="nav-links">
                 <button class="nav-btn active" data-target="home"><i class="fas fa-compact-disc"></i> Player</button>
                 <button class="nav-btn" data-target="playlist"><i class="fas fa-list"></i> Tracks</button>
-                <button class="nav-btn" data-target="favorites"><i class="fas fa-heart"></i> Liked</button>
+                <button class="nav-btn" data-target="favorites"><i class="fas fa-bookmark"></i> Library</button>
                 <button class="nav-btn" data-target="downloads"><i class="fas fa-arrow-down"></i> Downloads</button>
             </nav>
         </header>
@@ -72,17 +72,44 @@
                 </div>
             </section>
 
-            <!-- Favorites Section -->
+            <!-- Favorites Section (renamed to Library internally but matches #favorites target) -->
             <section class="playlist-section hidden" id="favorites">
-                <h2>My Liked Songs</h2>
-                <div class="playlist-grid" id="favorites-container">
-                    <!-- Populated by JS -->
+                <div id="library-main-view">
+                    <div class="section-header-row">
+                        <h2>My Library</h2>
+                        <button class="cat-btn" id="create-playlist-btn" style="background: var(--primary-color); border: none; box-shadow: 0 4px 10px rgba(240,84,84,0.3); font-weight: 600;"><i class="fas fa-plus"></i> Create Playlist</button>
+                    </div>
+                    <div class="library-grid" id="library-playlists-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                
+                <div id="library-playlist-detail-view" class="hidden">
+                    <div class="section-header-row">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <button class="cat-btn" id="playlist-back-btn" style="padding: 6px 12px;"><i class="fas fa-arrow-left"></i> Back</button>
+                            <h2 id="playlist-detail-title">Playlist Name</h2>
+                        </div>
+                        <div class="mini-search-box">
+                            <input type="text" id="favorites-search-input" placeholder="Search songs...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                    <div class="playlist-grid" id="favorites-container">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
             </section>
 
             <!-- Downloads Section -->
             <section class="playlist-section hidden" id="downloads">
-                <h2>Downloaded Songs</h2>
+                <div class="section-header-row">
+                    <h2>Downloaded Songs</h2>
+                    <div class="mini-search-box">
+                        <input type="text" id="downloads-search-input" placeholder="Search offline songs...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
                 <div class="playlist-grid" id="downloads-container">
                     <!-- Populated by JS -->
                 </div>
@@ -122,6 +149,10 @@
 
                         <!-- Controls -->
                         <div class="controls">
+                            <div class="secondary-controls">
+                                <button class="control-btn mini-btn" id="shuffle-btn" title="Shuffle Mode"><i class="fas fa-shuffle"></i></button>
+                                <button class="control-btn mini-btn" id="repeat-btn" title="Repeat Mode"><i class="fas fa-repeat"></i></button>
+                            </div>
                             <div class="progress-container">
                                 <span id="current-time">0:00</span>
                                 <input type="range" id="progress-bar" value="0" min="0" max="100" step="0.1">
@@ -147,13 +178,26 @@
         <nav class="bottom-nav">
             <button class="nav-btn active" data-target="home"><i class="fas fa-compact-disc"></i> <span>Player</span></button>
             <button class="nav-btn" data-target="playlist"><i class="fas fa-list"></i> <span>Tracks</span></button>
-            <button class="nav-btn" data-target="favorites"><i class="fas fa-heart"></i> <span>Liked</span></button>
+            <button class="nav-btn" data-target="favorites"><i class="fas fa-bookmark"></i> <span>Library</span></button>
             <button class="nav-btn" data-target="downloads"><i class="fas fa-arrow-down"></i> <span>Downloads</span></button>
         </nav>
+    <!-- Add to Playlist Modal -->
+    <div id="playlist-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add to Playlist</h3>
+                <button class="modal-close-btn" id="close-playlist-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="playlist-options-list" id="playlist-options-list" style="max-height: 300px; margin-bottom: 0;">
+                    <!-- Dynamic playlist list -->
+                </div>
+            </div>
+        </div>
     </div>
-    
+
     <audio id="audio-player"></audio>
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=21"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
