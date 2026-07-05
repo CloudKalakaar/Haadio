@@ -802,6 +802,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .albums-grid {
     display: flex;
+    align-items: flex-start;
     gap: 1.2rem;
     overflow-x: auto;
     padding: 0.5rem 0.2rem 1.2rem 0.2rem;
@@ -943,5 +944,76 @@ input[type="range"]::-webkit-slider-thumb:hover {
     /* Give page contents padding at the bottom so they aren't covered by bottom-nav */
     .app-container {
         padding-bottom: 70px;
+    }
+}
+
+/* Blurred Backdrop aura */
+.player-section {
+    position: relative;
+    overflow: hidden;
+}
+
+.home-backdrop {
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background-size: cover;
+    background-position: center;
+    filter: blur(50px) brightness(0.25) saturate(1.4);
+    opacity: 0;
+    transition: background-image 1.2s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 1.5s ease;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.home-backdrop.active {
+    opacity: 1;
+}
+
+.radio-box {
+    position: relative;
+    z-index: 2;
+}
+
+/* Header Action Button (Hard Refresh) */
+.header-action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--radio-border);
+    color: var(--text-color);
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    font-size: 0.95rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.header-action-btn:hover {
+    color: var(--primary-color);
+    border-color: rgba(240, 84, 84, 0.4);
+    background: rgba(240, 84, 84, 0.1);
+    box-shadow: 0 0 12px rgba(240, 84, 84, 0.25);
+}
+
+.header-action-btn:active {
+    transform: scale(0.92);
+}
+
+/* Adjust header spacing on mobile to fit the button */
+@media (max-width: 767px) {
+    .header {
+        position: relative;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem 1.2rem;
+        width: 100%;
     }
 }

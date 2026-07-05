@@ -372,21 +372,34 @@ function loadSong(index) {
     applyMarquee(trackTitle);
     applyMarquee(trackArtist);
     
-    // Set album art on the record center
+    // Set album art on the record center and blurred home background
+    let songImg = '';
     if (song.imageBlob) {
-        const imgUrl = URL.createObjectURL(song.imageBlob);
-        recordCenter.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('${imgUrl}')`;
-        recordCenter.style.backgroundSize = 'cover';
-        recordCenter.style.backgroundPosition = 'center';
-        labelTitle.style.display = 'block';
+        songImg = URL.createObjectURL(song.imageBlob);
     } else if (song.image) {
-        recordCenter.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('${song.image}')`;
+        songImg = song.image;
+    }
+
+    if (songImg) {
+        recordCenter.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('${songImg}')`;
         recordCenter.style.backgroundSize = 'cover';
         recordCenter.style.backgroundPosition = 'center';
         labelTitle.style.display = 'block';
     } else {
         recordCenter.style.backgroundImage = 'none';
         labelTitle.style.display = 'block';
+    }
+
+    // Dynamic blurred backdrop updates
+    const homeBackdrop = document.querySelector('.home-backdrop');
+    if (homeBackdrop) {
+        if (songImg) {
+            homeBackdrop.style.backgroundImage = `url('${songImg}')`;
+            homeBackdrop.classList.add('active');
+        } else {
+            homeBackdrop.style.backgroundImage = 'none';
+            homeBackdrop.classList.remove('active');
+        }
     }
     
     updateLikeButtonState();
@@ -696,6 +709,37 @@ function renderDownloads() {
         });
     }).catch(err => {
         console.error('Failed to get offline songs:', err);
+    });
+}
+
+// Hard Refresh Button Handler (Clear Cache and Force Reload)
+const hardRefreshBtn = document.getElementById('hard-refresh-btn');
+if (hardRefreshBtn) {
+    hardRefreshBtn.addEventListener('click', async () => {
+        const icon = hardRefreshBtn.querySelector('i');
+        if (icon) icon.className = 'fas fa-rotate fa-spin';
+        
+        try {
+            // Unregister service workers
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                }
+            }
+            
+            // Delete cache storage caches
+            if ('caches' in window) {
+                const cacheKeys = await caches.keys();
+                await Promise.all(cacheKeys.map(key => caches.delete(key)));
+            }
+            
+            // Perform reload bypassing caches
+            window.location.reload(true);
+        } catch (e) {
+            console.error('Hard refresh clear cache error:', e);
+            window.location.reload(true);
+        }
     });
 }
 
