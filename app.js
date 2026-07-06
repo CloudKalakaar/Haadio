@@ -2,6 +2,22 @@ let songs = [];
 let displayedSongs = [];
 let wakeLock = null;
 let currentSongIndex = 0;
+let lastPlayedBotSongIds = [];
+
+function recordPlayedBotSong(songId) {
+    if (!songId) return;
+    lastPlayedBotSongIds.push(songId);
+    if (lastPlayedBotSongIds.length > 20) {
+        lastPlayedBotSongIds.shift();
+    }
+}
+
+function pickCandidateSong(candidates) {
+    if (!candidates || candidates.length === 0) return null;
+    const freshCandidates = candidates.filter(s => !lastPlayedBotSongIds.includes(s.id));
+    const selectionList = freshCandidates.length > 0 ? freshCandidates : candidates;
+    return selectionList[Math.floor(Math.random() * selectionList.length)];
+}
 let isPlaying = false;
 const audio = document.getElementById('audio-player');
 
@@ -1616,41 +1632,14 @@ function renderChatboxMainView() {
     const input = chatbox.querySelector('#bot-chat-input');
     const sendBtn = chatbox.querySelector('#bot-send-btn');
 
-    const botMoodCache = {};
-
     const handleSend = () => {
         const query = input.value.trim();
         if (!query) return;
 
-        const cleanQuery = query.toLowerCase().trim();
         appendUserMessage(query);
         input.value = '';
 
         const botName = botSelectedChar === 'girl' ? 'Shruti' : 'Naad';
-
-        if (botMoodCache[cleanQuery]) {
-            const cached = botMoodCache[cleanQuery];
-            appendBotMessage(cached.message);
-            
-            if (cached.songsList && cached.songsList.length > 0) {
-                songs = [...cached.songsList];
-                displayedSongs = [...cached.songsList];
-                renderPlaylist();
-                
-                const idx = songs.findIndex(s => s.id === cached.playSongId);
-                currentSongIndex = idx !== -1 ? idx : 0;
-                loadSong(currentSongIndex);
-                playSong();
-                
-                const tracksNavBtn = document.querySelector('.nav-btn[data-target="playlist"]');
-                if (tracksNavBtn) {
-                    tracksNavBtn.click();
-                }
-                
-                showToast(`DJ ${botName} replays: ${songs[currentSongIndex].title}`);
-            }
-            return;
-        }
 
         const loader = appendBotMessage("Searching vinyl racks... 💿");
 
@@ -1660,18 +1649,28 @@ function renderChatboxMainView() {
             appendBotMessage(response.message);
 
             if (response.playSongId) {
-                const idx = songs.findIndex(s => s.id === response.playSongId);
+                let targetId = response.playSongId;
+                if (lastPlayedBotSongIds.includes(targetId)) {
+                    const cleanMsg = query.toLowerCase();
+                    let matches = [];
+                    if (cleanMsg.includes('happy') || cleanMsg.includes('party') || cleanMsg.includes('beat') || cleanMsg.includes('dance') || cleanMsg.includes('groove') || cleanMsg.includes('upbeat')) {
+                        matches = songs.filter(s => s.title.toLowerCase().includes('dance') || s.title.toLowerCase().includes('party') || s.title.toLowerCase().includes('beat'));
+                    } else if (cleanMsg.includes('sad') || cleanMsg.includes('cry') || cleanMsg.includes('pain') || cleanMsg.includes('alone')) {
+                        matches = songs.filter(s => s.title.toLowerCase().includes('sad') || s.title.toLowerCase().includes('quiet') || s.title.toLowerCase().includes('slow'));
+                    }
+                    if (matches.length > 0) {
+                        const alternate = pickCandidateSong(matches);
+                        if (alternate) targetId = alternate.id;
+                    }
+                }
+
+                const idx = songs.findIndex(s => s.id === targetId);
                 if (idx !== -1) {
                     currentSongIndex = idx;
                     loadSong(currentSongIndex);
                     playSong();
                     showToast(`DJ ${botName} plays: ${songs[idx].title}`);
-                    
-                    botMoodCache[cleanQuery] = {
-                        message: response.message,
-                        playSongId: response.playSongId,
-                        songsList: [...songs]
-                    };
+                    recordPlayedBotSong(targetId);
                 }
             } else if (response.queueSongId) {
                 const song = songs.find(s => s.id === response.queueSongId);
@@ -1696,16 +1695,13 @@ function renderChatboxMainView() {
                 fetchSongs(response.searchQuery).then(() => {
                     if (displayedSongs.length > 0) {
                         songs = [...displayedSongs];
-                        currentSongIndex = 0;
+                        const chosen = pickCandidateSong(songs) || songs[0];
+                        const idx = songs.findIndex(s => s.id === chosen.id);
+                        currentSongIndex = idx !== -1 ? idx : 0;
                         loadSong(currentSongIndex);
                         playSong();
-                        showToast(`DJ ${botName} plays: ${songs[0].title}`);
-                        
-                        botMoodCache[cleanQuery] = {
-                            message: response.message,
-                            playSongId: songs[0].id,
-                            songsList: [...songs]
-                        };
+                        showToast(`DJ ${botName} plays: ${songs[currentSongIndex].title}`);
+                        recordPlayedBotSong(chosen.id);
                     }
                 }).catch(err => {
                     console.error("Bot search failed:", err);
@@ -1797,29 +1793,32 @@ function localMoodFallback(userMessage) {
     // 2. Keyword matching for moods/genres
     if (text.includes('happy') || text.includes('party') || text.includes('beat') || text.includes('dance') || text.includes('groove') || text.includes('upbeat')) {
         reply.message = `${randomSlang()} You want to groove? Let's turn up the beat!`;
-        const energetic = songs.find(s => 
+        const matches = songs.filter(s => 
             s.title.toLowerCase().includes('dance') || 
             s.title.toLowerCase().includes('party') || 
             s.title.toLowerCase().includes('beat') ||
             s.title.toLowerCase().includes('happy')
-        ) || songs[0];
+        );
+        const energetic = pickCandidateSong(matches) || matches[0] || songs[0];
         if (energetic) reply.playSongId = energetic.id;
     } else if (text.includes('sad') || text.includes('cry') || text.includes('pain') || text.includes('alone') || text.includes('slow') || text.includes('quiet')) {
         reply.message = "Yo, I feel you. Let's chill out with a smooth, comforting tune.";
-        const mellow = songs.find(s => 
+        const matches = songs.filter(s => 
             s.title.toLowerCase().includes('sad') || 
             s.title.toLowerCase().includes('quiet') || 
             s.title.toLowerCase().includes('slow') || 
             s.title.toLowerCase().includes('love')
-        ) || songs[1] || songs[0];
+        );
+        const mellow = pickCandidateSong(matches) || matches[0] || songs[1] || songs[0];
         if (mellow) reply.playSongId = mellow.id;
     } else if (text.includes('relax') || text.includes('chill') || text.includes('study') || text.includes('sleep') || text.includes('lofi')) {
         reply.message = "Chill out time. Lay back and let this wave wash over you.";
-        const relax = songs.find(s => 
+        const matches = songs.filter(s => 
             s.title.toLowerCase().includes('chill') || 
             s.title.toLowerCase().includes('relax') || 
             s.title.toLowerCase().includes('study')
-        ) || songs[2] || songs[0];
+        );
+        const relax = pickCandidateSong(matches) || matches[0] || songs[2] || songs[0];
         if (relax) reply.playSongId = relax.id;
     } else {
         // 3. Fallback search query based on longest words in the input
