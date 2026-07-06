@@ -1710,17 +1710,15 @@ Rules:
 3. Keep the chat message under 2 sentences.`;
 
     try {
-        const targetUrl = 'https://api.x.ai/v1/chat/completions';
-        const proxiedUrl = 'https://api.cors.lol/?url=' + encodeURIComponent(targetUrl);
-
-        const response = await fetch(proxiedUrl, {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${GROK_API_KEY}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'grok-beta',
+                model: 'llama-3.3-70b-versatile',
+                response_format: { type: "json_object" },
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userMessage }
