@@ -1369,6 +1369,24 @@ function initRetroBot() {
     const chatbox = document.getElementById('bot-chatbox');
     if (!container || !spriteDiv || !chatbox) return;
 
+    function positionBotContainer() {
+        const header = document.querySelector('.header');
+        const refreshBtn = document.getElementById('hard-refresh-btn');
+        const playerWrapper = document.querySelector('.player-wrapper');
+        if (window.innerWidth <= 500) {
+            if (header && refreshBtn && container.parentNode !== header) {
+                header.insertBefore(container, refreshBtn);
+            }
+        } else {
+            if (playerWrapper && container.parentNode !== playerWrapper) {
+                playerWrapper.insertBefore(container, playerWrapper.firstChild);
+            }
+        }
+    }
+
+    positionBotContainer();
+    window.addEventListener('resize', positionBotContainer);
+
     if (botSelectedChar) {
         spriteDiv.innerHTML = botSVGs[botSelectedChar];
         renderChatboxMainView();

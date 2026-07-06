@@ -1,4 +1,4 @@
-const CACHE_NAME = 'haadio-cache-v32';
+const CACHE_NAME = 'haadio-cache-v33';
 const urlsToCache = [
   './',
   './index.html',
