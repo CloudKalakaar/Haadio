@@ -1560,10 +1560,24 @@ function renderChatboxMainView() {
                 const globalSearch = document.getElementById('search-input');
                 if (globalSearch) {
                     globalSearch.value = response.searchQuery;
-                    globalSearch.dispatchEvent(new Event('input'));
-                    const homeNavBtn = document.querySelector('.bottom-nav button[data-target="home"]');
-                    if (homeNavBtn) homeNavBtn.click();
                 }
+                if (typeof catBtns !== 'undefined') {
+                    catBtns.forEach(b => b.classList.remove('active'));
+                }
+                const tracksNavBtn = document.querySelector('.nav-btn[data-target="playlist"]');
+                if (tracksNavBtn) {
+                    tracksNavBtn.click();
+                }
+                fetchSongs(response.searchQuery).then(() => {
+                    if (songs.length > 0) {
+                        currentSongIndex = 0;
+                        loadSong(currentSongIndex);
+                        playSong();
+                        showToast(`DJ ${botName} plays: ${songs[0].title}`);
+                    }
+                }).catch(err => {
+                    console.error("Bot search failed:", err);
+                });
             }
         });
     };
