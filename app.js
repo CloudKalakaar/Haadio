@@ -1646,7 +1646,7 @@ Rules:
 
     try {
         const targetUrl = 'https://api.x.ai/v1/chat/completions';
-        const proxiedUrl = 'https://api.codetabs.com/v1/proxy?url=' + encodeURIComponent(targetUrl);
+        const proxiedUrl = 'https://api.cors.lol/?url=' + encodeURIComponent(targetUrl);
 
         const response = await fetch(proxiedUrl, {
             method: 'POST',
