@@ -1617,6 +1617,71 @@ function appendUserMessage(text) {
     box.scrollTop = box.scrollHeight;
 }
 
+function localMoodFallback(userMessage) {
+    const text = userMessage.toLowerCase();
+    const botName = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+    const slang = ["Tubular!", "Radical!", "Chill out!", "Pump it up!", "Yo!", "Wicked!", "Awesome!", "Totally choice!"];
+    const randomSlang = () => slang[Math.floor(Math.random() * slang.length)];
+
+    let reply = {
+        message: `${randomSlang()} Let's spin some tracks, homey!`,
+        playSongId: "",
+        queueSongId: "",
+        searchQuery: ""
+    };
+
+    // 1. Match direct song titles or artists from the app's tracklist
+    const matchedSong = songs.find(s => 
+        text.includes(s.title.toLowerCase()) || text.includes(s.artist.toLowerCase())
+    );
+
+    if (matchedSong) {
+        reply.playSongId = matchedSong.id;
+        reply.message = `Radical! "${matchedSong.title}" is a total classic. Playing it now, homey!`;
+        return reply;
+    }
+
+    // 2. Keyword matching for moods/genres
+    if (text.includes('happy') || text.includes('party') || text.includes('beat') || text.includes('dance') || text.includes('groove') || text.includes('upbeat')) {
+        reply.message = `${randomSlang()} You want to groove? Let's turn up the beat!`;
+        const energetic = songs.find(s => 
+            s.title.toLowerCase().includes('dance') || 
+            s.title.toLowerCase().includes('party') || 
+            s.title.toLowerCase().includes('beat') ||
+            s.title.toLowerCase().includes('happy')
+        ) || songs[0];
+        if (energetic) reply.playSongId = energetic.id;
+    } else if (text.includes('sad') || text.includes('cry') || text.includes('pain') || text.includes('alone') || text.includes('slow') || text.includes('quiet')) {
+        reply.message = "Yo, I feel you. Let's chill out with a smooth, comforting tune.";
+        const mellow = songs.find(s => 
+            s.title.toLowerCase().includes('sad') || 
+            s.title.toLowerCase().includes('quiet') || 
+            s.title.toLowerCase().includes('slow') || 
+            s.title.toLowerCase().includes('love')
+        ) || songs[1] || songs[0];
+        if (mellow) reply.playSongId = mellow.id;
+    } else if (text.includes('relax') || text.includes('chill') || text.includes('study') || text.includes('sleep') || text.includes('lofi')) {
+        reply.message = "Chill out time. Lay back and let this wave wash over you.";
+        const relax = songs.find(s => 
+            s.title.toLowerCase().includes('chill') || 
+            s.title.toLowerCase().includes('relax') || 
+            s.title.toLowerCase().includes('study')
+        ) || songs[2] || songs[0];
+        if (relax) reply.playSongId = relax.id;
+    } else {
+        // 3. Fallback search query based on longest words in the input
+        const words = text.split(/\s+/).filter(w => w.length > 3 && !['what', 'your', 'about', 'some', 'song', 'play', 'find', 'mood'].includes(w));
+        if (words.length > 0) {
+            reply.searchQuery = words[0];
+            reply.message = `Tubular! Let's search the deck for "${words[0]}"!`;
+        } else {
+            reply.message = `Wicked! I'm DJ ${botName}. Tell me your mood or genre, and I'll spin the perfect tape!`;
+        }
+    }
+
+    return reply;
+}
+
 async function queryGrokDJ(userMessage) {
     const availableSongs = songs.map(s => ({
         id: s.id,
@@ -1683,13 +1748,8 @@ Rules:
         
         return JSON.parse(contentStr.trim());
     } catch (e) {
-        console.error("Grok DJ API request failed:", e);
-        return {
-            message: "Ayy! The cassettes got tangled! Try again or check your net, homey!",
-            playSongId: "",
-            queueSongId: "",
-            searchQuery: ""
-        };
+        console.warn("Grok DJ API request failed, falling back to local analyzer:", e);
+        return localMoodFallback(userMessage);
     }
 }
 
