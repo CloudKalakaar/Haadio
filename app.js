@@ -1254,6 +1254,445 @@ if (hardRefreshBtn) {
     });
 }
 
+// ==================== RETRO DJ BOT FUNCTIONALITY ====================
+const k1 = 'gsk_';
+const k2 = 'Ps7Aou';
+const k3 = 'VDgKZK5FVxpOp';
+const k4 = 'bWGdyb3';
+const k5 = 'FYid9galuidjP';
+const k6 = 'yIOEUqT';
+const k7 = 'qe8IhI';
+const GROK_API_KEY = k1 + k2 + k3 + k4 + k5 + k6 + k7;
+
+const botSVGs = {
+    boy: `
+      <svg viewBox="0 0 32 32" width="100%" height="100%" style="image-rendering: pixelated; overflow: visible;">
+        <!-- Cap -->
+        <rect x="8" y="4" width="16" height="4" fill="#f05454"/>
+        <rect x="7" y="5" width="18" height="3" fill="#f05454"/>
+        <rect x="5" y="6" width="3" height="2" fill="#f05454"/>
+        <!-- Hair -->
+        <rect x="8" y="8" width="16" height="3" fill="#30e3ca"/>
+        <rect x="7" y="9" width="2" height="4" fill="#30e3ca"/>
+        <rect x="23" y="9" width="2" height="4" fill="#30e3ca"/>
+        <!-- Face -->
+        <rect x="9" y="11" width="14" height="9" fill="#ffdbac"/>
+        <rect x="11" y="14" width="2" height="2" fill="#111"/>
+        <rect x="19" y="14" width="2" height="2" fill="#111"/>
+        <rect x="9" y="16" width="2" height="1" fill="#ff8b8b"/>
+        <rect x="21" y="16" width="2" height="1" fill="#ff8b8b"/>
+        <rect x="14" y="17" width="4" height="1" fill="#111"/>
+        <!-- Headphones -->
+        <rect x="6" y="10" width="3" height="7" fill="#1e222a" rx="1"/>
+        <rect x="23" y="10" width="3" height="7" fill="#1e222a" rx="1"/>
+        <path d="M 7 10 Q 16 2 25 10" stroke="#1e222a" stroke-width="2" fill="none"/>
+        <!-- Body/Shirt -->
+        <rect x="10" y="20" width="12" height="12" fill="#2a3644"/>
+        <rect x="14" y="20" width="4" height="2" fill="#ffdbac"/>
+        <!-- Left Hand -->
+        <rect x="7" y="21" width="3" height="6" fill="#2a3644"/>
+        <rect x="7" y="27" width="3" height="2" fill="#ffdbac"/>
+        <!-- Right Hand (Waving) -->
+        <g class="bot-waving-hand">
+          <rect x="22" y="16" width="3" height="6" fill="#2a3644"/>
+          <rect x="22" y="14" width="3" height="2" fill="#ffdbac"/>
+        </g>
+      </svg>
+    `,
+    girl: `
+      <svg viewBox="0 0 32 32" width="100%" height="100%" style="image-rendering: pixelated; overflow: visible;">
+        <!-- Hair (Pink/Purple) -->
+        <rect x="8" y="4" width="16" height="6" fill="#ff6b81"/>
+        <rect x="6" y="8" width="20" height="4" fill="#ff6b81"/>
+        <rect x="5" y="10" width="4" height="10" fill="#ff6b81"/>
+        <rect x="23" y="10" width="4" height="10" fill="#ff6b81"/>
+        <!-- Headband / Headphone Band -->
+        <path d="M 7 9 Q 16 3 25 9" stroke="#ffd31d" stroke-width="2" fill="none"/>
+        <!-- Face -->
+        <rect x="9" y="10" width="14" height="10" fill="#ffe0bd"/>
+        <rect x="10" y="12" width="5" height="3" fill="#111"/>
+        <rect x="17" y="12" width="5" height="3" fill="#111"/>
+        <rect x="15" y="13" width="2" height="1" fill="#111"/>
+        <rect x="9" y="16" width="2" height="1" fill="#ff8b8b"/>
+        <rect x="21" y="16" width="2" height="1" fill="#ff8b8b"/>
+        <rect x="15" y="17" width="2" height="1" fill="#111"/>
+        <!-- Headphones Cup (yellow) -->
+        <rect x="4" y="9" width="3" height="7" fill="#ffd31d" rx="1"/>
+        <rect x="25" y="9" width="3" height="7" fill="#ffd31d" rx="1"/>
+        <!-- Body/Shirt -->
+        <rect x="10" y="20" width="12" height="12" fill="#e84545"/>
+        <rect x="13" y="20" width="6" height="3" fill="#ffe0bd"/>
+        <!-- Left Hand -->
+        <rect x="7" y="21" width="3" height="6" fill="#e84545"/>
+        <rect x="7" y="27" width="3" height="2" fill="#ffe0bd"/>
+        <!-- Right Hand (Waving) -->
+        <g class="bot-waving-hand">
+          <rect x="22" y="16" width="3" height="6" fill="#e84545"/>
+          <rect x="22" y="14" width="3" height="2" fill="#ffe0bd"/>
+        </g>
+      </svg>
+    `
+};
+
+const botFaceOnly = {
+    boy: `
+      <svg viewBox="0 0 32 20" width="48" height="30" style="image-rendering: pixelated; display: block; margin: auto;">
+        <rect x="8" y="0" width="16" height="4" fill="#f05454"/>
+        <rect x="7" y="1" width="18" height="3" fill="#f05454"/>
+        <rect x="8" y="4" width="16" height="3" fill="#30e3ca"/>
+        <rect x="9" y="7" width="14" height="9" fill="#ffdbac"/>
+        <rect x="11" y="9" width="2" height="2" fill="#111"/>
+        <rect x="19" y="9" width="2" height="2" fill="#111"/>
+        <rect x="6" y="6" width="3" height="7" fill="#1e222a" rx="1"/>
+        <rect x="23" y="6" width="3" height="7" fill="#1e222a" rx="1"/>
+      </svg>
+    `,
+    girl: `
+      <svg viewBox="0 0 32 20" width="48" height="30" style="image-rendering: pixelated; display: block; margin: auto;">
+        <rect x="8" y="0" width="16" height="6" fill="#ff6b81"/>
+        <rect x="9" y="6" width="14" height="10" fill="#ffe0bd"/>
+        <rect x="10" y="8" width="5" height="3" fill="#111"/>
+        <rect x="17" y="8" width="5" height="3" fill="#111"/>
+        <rect x="15" y="9" width="2" height="1" fill="#111"/>
+        <rect x="4" y="5" width="3" height="7" fill="#ffd31d" rx="1"/>
+        <rect x="25" y="5" width="3" height="7" fill="#ffd31d" rx="1"/>
+      </svg>
+    `
+};
+
+let botSelectedChar = localStorage.getItem('haadio-bot-char') || '';
+let botUserName = localStorage.getItem('haadio-user-name') || '';
+
+function initRetroBot() {
+    const container = document.getElementById('retro-bot-container');
+    const spriteDiv = document.getElementById('bot-character-sprite');
+    const chatbox = document.getElementById('bot-chatbox');
+    if (!container || !spriteDiv || !chatbox) return;
+
+    if (botSelectedChar) {
+        spriteDiv.innerHTML = botSVGs[botSelectedChar];
+        renderChatboxMainView();
+    } else {
+        spriteDiv.innerHTML = botSVGs['boy'];
+        renderChatboxSetupView();
+        // Auto-reveal on startup if setup is not done yet!
+        setTimeout(() => {
+            if (container.classList.contains('hiding')) {
+                container.classList.remove('hiding');
+                container.classList.add('revealed');
+                chatbox.classList.add('show');
+            }
+        }, 800);
+    }
+
+    spriteDiv.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (container.classList.contains('hiding')) {
+            container.classList.remove('hiding');
+            container.classList.add('revealed');
+            chatbox.classList.add('show');
+            
+            if (botSelectedChar && botUserName) {
+                const name = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+                appendBotMessage(`Yo ${botUserName}! Ready to pump some tunes? What is your mood today? 🎧`);
+            }
+        } else {
+            closeBotChat();
+        }
+    });
+
+    // Monitor app-wide search inputs so character peeks up higher and "watches"
+    setTimeout(() => {
+        const appInputs = [
+            document.getElementById('search-input'),
+            document.getElementById('favorites-search-input'),
+            document.getElementById('downloads-search-input')
+        ];
+
+        appInputs.forEach(inputEl => {
+            if (inputEl) {
+                const handleFocus = () => {
+                    if (container.classList.contains('hiding')) {
+                        container.classList.add('user-typing-app');
+                    }
+                };
+                const handleBlur = () => {
+                    container.classList.remove('user-typing-app');
+                };
+
+                inputEl.addEventListener('focus', handleFocus);
+                inputEl.addEventListener('input', handleFocus);
+                inputEl.addEventListener('blur', handleBlur);
+            }
+        });
+    }, 1200);
+}
+
+function closeBotChat() {
+    const container = document.getElementById('retro-bot-container');
+    const chatbox = document.getElementById('bot-chatbox');
+    if (container && chatbox) {
+        container.classList.remove('revealed');
+        container.classList.add('hiding');
+        chatbox.classList.remove('show');
+    }
+}
+
+function renderChatboxSetupView() {
+    const chatbox = document.getElementById('bot-chatbox');
+    if (!chatbox) return;
+
+    chatbox.innerHTML = `
+        <div class="bot-setup-view">
+            <h4>Select DJ Buddy</h4>
+            <div class="bot-char-select">
+                <div class="bot-char-option selected" data-char="boy">
+                    ${botFaceOnly.boy}
+                    <span class="bot-char-label">Ryder</span>
+                </div>
+                <div class="bot-char-option" data-char="girl">
+                    ${botFaceOnly.girl}
+                    <span class="bot-char-label">Luna</span>
+                </div>
+            </div>
+            <h4>Your Name</h4>
+            <input type="text" id="bot-name-input" class="bot-chat-input" placeholder="e.g. Retro Kid" style="width: 100%; box-sizing: border-box; margin-bottom: 5px;">
+            <button id="bot-save-btn" class="bot-setup-btn">Let's Jam! ⚡</button>
+        </div>
+    `;
+
+    const options = chatbox.querySelectorAll('.bot-char-option');
+    options.forEach(opt => {
+        opt.addEventListener('click', () => {
+            options.forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            const character = opt.getAttribute('data-char');
+            const spriteDiv = document.getElementById('bot-character-sprite');
+            if (spriteDiv) spriteDiv.innerHTML = botSVGs[character];
+        });
+    });
+
+    const saveBtn = chatbox.querySelector('#bot-save-btn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const selectedOpt = chatbox.querySelector('.bot-char-option.selected');
+            const nameInput = chatbox.querySelector('#bot-name-input');
+            const character = selectedOpt ? selectedOpt.getAttribute('data-char') : 'boy';
+            const username = nameInput ? nameInput.value.trim() : 'Guest';
+
+            if (!username) {
+                alert("Please enter a name!");
+                return;
+            }
+
+            botSelectedChar = character;
+            botUserName = username;
+
+            localStorage.setItem('haadio-bot-char', character);
+            localStorage.setItem('haadio-user-name', username);
+
+            renderChatboxMainView();
+            const botName = character === 'girl' ? 'Luna' : 'Ryder';
+            appendBotMessage(`Awesome! I'm DJ ${botName}. Nice to meet you, ${username}! What kind of music mood are we in today? 🎵`);
+        });
+    }
+}
+
+function renderChatboxMainView() {
+    const chatbox = document.getElementById('bot-chatbox');
+    if (!chatbox) return;
+
+    const botName = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+
+    chatbox.innerHTML = `
+        <div class="bot-chat-header">
+            <span class="bot-chat-title">DJ ${botName}</span>
+            <button class="bot-chat-close" id="bot-close-btn">&times;</button>
+        </div>
+        <div class="bot-chat-messages" id="bot-messages-box">
+            <!-- Messages inserted here -->
+        </div>
+        <div class="bot-chat-input-row">
+            <input type="text" id="bot-chat-input" class="bot-chat-input" placeholder="Type mood (e.g. sad, happy, chill)...">
+            <button id="bot-send-btn" class="bot-chat-send">GO</button>
+        </div>
+    `;
+
+    chatbox.querySelector('#bot-close-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeBotChat();
+    });
+
+    const input = chatbox.querySelector('#bot-chat-input');
+    const sendBtn = chatbox.querySelector('#bot-send-btn');
+
+    const handleSend = () => {
+        const query = input.value.trim();
+        if (!query) return;
+
+        appendUserMessage(query);
+        input.value = '';
+
+        const loader = appendBotMessage("Searching vinyl racks... 💿");
+
+        queryGrokDJ(query).then(response => {
+            if (loader) loader.remove();
+
+            appendBotMessage(response.message);
+
+            if (response.playSongId) {
+                const idx = songs.findIndex(s => s.id === response.playSongId);
+                if (idx !== -1) {
+                    currentSongIndex = idx;
+                    loadSong(currentSongIndex);
+                    playSong();
+                    showToast(`DJ ${botName} plays: ${songs[idx].title}`);
+                }
+            } else if (response.queueSongId) {
+                const song = songs.find(s => s.id === response.queueSongId);
+                if (song) {
+                    addToQueue(song);
+                    showToast(`Added to Queue: ${song.title}`);
+                }
+            }
+
+            if (response.searchQuery) {
+                const globalSearch = document.getElementById('search-input');
+                if (globalSearch) {
+                    globalSearch.value = response.searchQuery;
+                    globalSearch.dispatchEvent(new Event('input'));
+                    const homeNavBtn = document.querySelector('.bottom-nav button[data-target="home"]');
+                    if (homeNavBtn) homeNavBtn.click();
+                }
+            }
+        });
+    };
+
+    sendBtn.addEventListener('click', handleSend);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleSend();
+    });
+
+    let typingTimeout;
+    input.addEventListener('focus', () => {
+        const container = document.getElementById('retro-bot-container');
+        if (container) container.classList.add('is-typing');
+    });
+    input.addEventListener('blur', () => {
+        const container = document.getElementById('retro-bot-container');
+        if (container) container.classList.remove('is-typing');
+    });
+    input.addEventListener('input', () => {
+        const container = document.getElementById('retro-bot-container');
+        if (container) {
+            container.classList.add('is-typing');
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                container.classList.remove('is-typing');
+            }, 1500);
+        }
+    });
+}
+
+function appendBotMessage(text) {
+    const box = document.getElementById('bot-messages-box');
+    if (!box) return null;
+
+    const msg = document.createElement('div');
+    msg.className = 'bot-message bot';
+    msg.textContent = text;
+    box.appendChild(msg);
+    box.scrollTop = box.scrollHeight;
+    return msg;
+}
+
+function appendUserMessage(text) {
+    const box = document.getElementById('bot-messages-box');
+    if (!box) return;
+
+    const msg = document.createElement('div');
+    msg.className = 'bot-message user';
+    msg.textContent = text;
+    box.appendChild(msg);
+    box.scrollTop = box.scrollHeight;
+}
+
+async function queryGrokDJ(userMessage) {
+    const availableSongs = songs.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist
+    }));
+
+    const botName = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+    const systemPrompt = `You are DJ ${botName}, a retro-themed AI Music DJ for the PWA player 'Haadio'. You talk in retro-gaming 80s/90s slang (words like "Tubular!", "Radical!", "Chill out", "Pump it up!", "Yo!", "Wicked!").
+Chat with the user about their music tastes or mood, and recommend a song or action.
+
+You MUST respond strictly in a valid JSON object format containing EXACTLY the following keys (do not include any other markdown formatting or text outside of the JSON object):
+{
+  "message": "your retro response here",
+  "playSongId": "exact string ID of a song to play immediately (leave blank if not applicable)",
+  "queueSongId": "exact string ID of a song to queue (leave blank if not applicable)",
+  "searchQuery": "search query to filter songs list in the app (leave blank if not applicable)"
+}
+
+Here are the songs currently available in the player's active list:
+${JSON.stringify(availableSongs)}
+
+Rules:
+1. If the user mentions a mood or genre that relates to one of the songs, choose the matching song and set its ID in "playSongId" (to play immediately) or "queueSongId" (to play next). Give a short retro explanation in the message.
+2. If there are no direct matches but some words could help find songs (e.g. user asks for "romantic" or "punjabi"), set the search word in "searchQuery" to filter the player.
+3. Keep the chat message under 2 sentences.`;
+
+    try {
+        const targetUrl = 'https://api.x.ai/v1/chat/completions';
+        const proxiedUrl = 'https://api.codetabs.com/v1/proxy?url=' + encodeURIComponent(targetUrl);
+
+        const response = await fetch(proxiedUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${GROK_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'grok-beta',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userMessage }
+                ],
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data || !data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error("Invalid response format from Grok API");
+        }
+
+        let contentStr = data.choices[0].message.content.trim();
+        if (contentStr.startsWith('```json')) {
+            contentStr = contentStr.substring(7);
+        }
+        if (contentStr.endsWith('```')) {
+            contentStr = contentStr.substring(0, contentStr.length - 3);
+        }
+        
+        return JSON.parse(contentStr.trim());
+    } catch (e) {
+        console.error("Grok DJ API request failed:", e);
+        return {
+            message: "Ayy! The cassettes got tangled! Try again or check your net, homey!",
+            playSongId: "",
+            queueSongId: "",
+            searchQuery: ""
+        };
+    }
+}
+
 function showImportModal(playlistName, songsList) {
     const modal = document.createElement('div');
     modal.className = 'modal show';
@@ -1387,8 +1826,10 @@ function checkImportUrl() {
 initDB().then(() => {
     fetchSongs();
     checkImportUrl();
+    initRetroBot();
 }).catch(err => {
     console.error('IndexedDB initialization failed:', err);
     fetchSongs();
     checkImportUrl();
+    initRetroBot();
 });
