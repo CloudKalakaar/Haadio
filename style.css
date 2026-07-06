@@ -1671,6 +1671,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 @media (max-width: 500px) {
+    .header {
+        position: relative;
+        z-index: 1010 !important;
+    }
     .bot-container {
         position: relative;
         left: 0;
@@ -1682,19 +1686,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
         align-self: center;
         flex-shrink: 0;
         z-index: 100;
-    }
-    .bot-container.hiding {
-        transform: translateY(22px);
-    }
-    .bot-container.hiding:hover {
-        transform: translateY(18px);
-    }
-    .bot-container.revealed {
-        transform: translateY(0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: none !important;
+        transition: none !important;
     }
     #bot-character-sprite {
         width: 48px;
         height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     .bot-chatbox {
         position: fixed;
@@ -1705,6 +1708,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
         max-width: 320px;
         bottom: auto;
         transform: scale(0.8) translateY(10px);
+        z-index: 1020;
     }
     .bot-chatbox.show {
         transform: scale(1) translateY(0);
@@ -1728,9 +1732,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
         border-right: 8px solid transparent;
         border-bottom: 10px solid rgba(26, 32, 44, 0.98);
         border-top: none;
-    }
-    .bot-container.hiding.user-typing-app {
-        transform: translateY(10px) !important;
     }
 }
 
