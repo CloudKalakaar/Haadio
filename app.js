@@ -228,7 +228,7 @@ async function fetchSongs(category = "trending") {
 
     let searchQuery = category;
     if (category === "trending") {
-        searchQuery = "latest releases";
+        searchQuery = "latest kannada";
     }
     
     const songsEndpoint = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(searchQuery)}&limit=30`;
@@ -1411,7 +1411,7 @@ function initRetroBot() {
             chatbox.classList.add('show');
             
             if (botSelectedChar && botUserName) {
-                const name = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+                const name = botSelectedChar === 'girl' ? 'Shruti' : 'Naad';
                 appendBotMessage(`Yo ${botUserName}! Ready to pump some tunes? What is your mood today? 🎧`);
             }
         } else {
@@ -1466,11 +1466,11 @@ function renderChatboxSetupView() {
             <div class="bot-char-select">
                 <div class="bot-char-option selected" data-char="boy">
                     ${botFaceOnly.boy}
-                    <span class="bot-char-label">Ryder</span>
+                    <span class="bot-char-label">Naad</span>
                 </div>
                 <div class="bot-char-option" data-char="girl">
                     ${botFaceOnly.girl}
-                    <span class="bot-char-label">Luna</span>
+                    <span class="bot-char-label">Shruti</span>
                 </div>
             </div>
             <h4>Your Name</h4>
@@ -1520,7 +1520,7 @@ function renderChatboxMainView() {
     const chatbox = document.getElementById('bot-chatbox');
     if (!chatbox) return;
 
-    const botName = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+    const botName = botSelectedChar === 'girl' ? 'Shruti' : 'Naad';
 
     chatbox.innerHTML = `
         <div class="bot-chat-header">
@@ -1651,7 +1651,7 @@ function appendUserMessage(text) {
 
 function localMoodFallback(userMessage) {
     const text = userMessage.toLowerCase();
-    const botName = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+    const botName = botSelectedChar === 'girl' ? 'Shruti' : 'Naad';
     const slang = ["Tubular!", "Radical!", "Chill out!", "Pump it up!", "Yo!", "Wicked!", "Awesome!", "Totally choice!"];
     const randomSlang = () => slang[Math.floor(Math.random() * slang.length)];
 
@@ -1661,6 +1661,13 @@ function localMoodFallback(userMessage) {
         queueSongId: "",
         searchQuery: ""
     };
+
+    // 1. Transliterated Kannada keyword matching
+    if (text.includes('haadu') || text.includes('hadu') || text.includes('hadugalu') || text.includes('haadugalu') || text.includes('kannada') || text.includes('haaku') || text.includes('haku') || text.includes('beku')) {
+        reply.message = `${randomSlang()} Let's spin some sweet Kannada tunes!`;
+        reply.searchQuery = "Kannada";
+        return reply;
+    }
 
     // 1. Match direct song titles or artists from the app's tracklist
     const matchedSong = songs.find(s => 
@@ -1721,9 +1728,18 @@ async function queryGrokDJ(userMessage) {
         artist: s.artist
     }));
 
-    const botName = botSelectedChar === 'girl' ? 'Luna' : 'Ryder';
+    const botName = botSelectedChar === 'girl' ? 'Shruti' : 'Naad';
     const systemPrompt = `You are DJ ${botName}, a retro-themed AI Music DJ for the PWA player 'Haadio'. You talk in retro-gaming 80s/90s slang (words like "Tubular!", "Radical!", "Chill out", "Pump it up!", "Yo!", "Wicked!").
 Chat with the user about their music tastes or mood, and recommend a song or action.
+
+CRITICAL: The user may speak in Kannada written using the English alphabet (transliterated Kannada / Manglish, e.g., "yaavdadru chennagiro haadu haaku", "hadu play madi", "kannada melody beku", "sad songs beku") or in Kannada script. You MUST fully understand their intent. If they request a specific mood, genre, or artist in Kannada, extract the search query or match it to a song.
+For example:
+- "haadu haaku" means "play a song".
+- "kannada haadugalu" means "Kannada songs".
+- "chennagiro" means "good".
+- "melodious" or "melody" means smooth/mellow tunes.
+- "beku" means "want/need".
+Always respond in your retro DJ slang in English.
 
 You MUST respond strictly in a valid JSON object format containing EXACTLY the following keys (do not include any other markdown formatting or text outside of the JSON object):
 {
@@ -1738,7 +1754,7 @@ ${JSON.stringify(availableSongs)}
 
 Rules:
 1. If the user mentions a mood or genre that relates to one of the songs, choose the matching song and set its ID in "playSongId" (to play immediately) or "queueSongId" (to play next). Give a short retro explanation in the message.
-2. If there are no direct matches but some words could help find songs (e.g. user asks for "romantic" or "punjabi"), set the search word in "searchQuery" to filter the player.
+2. If there are no direct matches but some words could help find songs (e.g. user asks for "romantic" or "kannada"), set the search word in "searchQuery" to filter the player.
 3. Keep the chat message under 2 sentences.`;
 
     try {
