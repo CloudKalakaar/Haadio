@@ -1392,8 +1392,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .bot-container {
     position: absolute;
     top: -46px;
-    left: 50%;
-    margin-left: -40px;
+    left: 45px;
     display: flex;
     align-items: flex-end;
     z-index: 100;
@@ -1673,18 +1672,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 @media (max-width: 500px) {
     .bot-container {
-        left: 50%;
-        margin-left: -40px;
+        left: 20px;
         top: -46px;
     }
     .bot-chatbox {
-        left: -85px;
+        left: -10px;
         top: 85px;
         bottom: auto;
         width: 250px;
     }
     .bot-chatbox::before {
-        left: 117px;
+        left: 30px;
         top: -11px;
         bottom: auto;
         border-left: 8px solid transparent;
@@ -1693,7 +1691,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
         border-top: none;
     }
     .bot-chatbox::after {
-        left: 117px;
+        left: 30px;
         top: -8px;
         bottom: auto;
         border-left: 8px solid transparent;
