@@ -1,4 +1,4 @@
-const CACHE_NAME = 'haadio-cache-v35';
+const CACHE_NAME = 'haadio-cache-v36';
 const urlsToCache = [
   './',
   './index.html',
@@ -36,6 +36,15 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Bypass service worker for external API endpoints and audio streams
+  if (event.request.url.includes('saavn.sumit.co') || 
+      event.request.url.includes('itunes.apple.com') || 
+      event.request.url.includes('.mp3') ||
+      event.request.url.includes('.m4a') ||
+      event.request.url.includes('aac.saavncdn.com')) {
+    return;
+  }
+
   // We want to skip caching for API calls or non-GET requests
   if (event.request.method !== 'GET') return;
 

@@ -1,4 +1,6 @@
 let songs = [];
+let displayedSongs = [];
+let wakeLock = null;
 let currentSongIndex = 0;
 let isPlaying = false;
 const audio = document.getElementById('audio-player');
@@ -219,8 +221,11 @@ function mapItunesTrack(track) {
 }
 
 async function fetchSongs(category = "trending") {
-    trackTitle.textContent = "Loading Songs...";
-    trackArtist.textContent = "Please wait";
+    // Only show "Loading..." in the player screen if no song is currently loaded
+    if (!audio.src) {
+        trackTitle.textContent = "Loading Songs...";
+        trackArtist.textContent = "Please wait";
+    }
     playlistContainer.innerHTML = '<div style="color: #fff; width: 100%; text-align: center; padding: 2rem;">Loading amazing tracks...</div>';
     
     if (albumsSection) albumsSection.classList.add('hidden');
@@ -260,14 +265,26 @@ async function fetchSongs(category = "trending") {
         }
 
         const seenIds = new Set();
-        songs = localSongs.filter(song => {
+        const newSongs = localSongs.filter(song => {
             if (seenIds.has(song.id)) return false;
             seenIds.add(song.id);
             return true;
         });
 
-        if (songs.length > 0) {
-            initPlayer();
+        if (newSongs.length > 0) {
+            displayedSongs = newSongs;
+            renderPlaylist();
+            
+            // Only load these songs into the active player if there isn't one already loaded/playing
+            if (!audio.src) {
+                songs = [...displayedSongs];
+                currentSongIndex = 0;
+                loadSong(currentSongIndex);
+                progressBar.value = 0;
+                currentTimeEl.textContent = "0:00";
+                totalTimeEl.textContent = "0:00";
+                pauseSong();
+            }
         } else {
             showError("No playable tracks found.");
         }
@@ -414,6 +431,55 @@ function applyMarquee(element) {
     }, 150);
 }
 
+// Screen Wake Lock & Prefetch API Helpers
+async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('Wake Lock acquired successfully.');
+    } catch (err) {
+        console.warn(`Wake Lock failed: ${err.message}`);
+    }
+}
+
+function releaseWakeLock() {
+    if (wakeLock) {
+        wakeLock.release().then(() => {
+            wakeLock = null;
+            console.log('Wake Lock released.');
+        });
+    }
+}
+
+// Handle wake lock reacquisition if document visibility changes
+document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+        if (isPlaying) {
+            await requestWakeLock();
+        }
+    }
+});
+
+let preloaderAudio = null;
+function prefetchNextSong() {
+    if (songs.length <= 1) return;
+    const nextIndex = (currentSongIndex + 1) % songs.length;
+    const nextSong = songs[nextIndex];
+    if (nextSong && !nextSong.audioBlob && !nextSong.prefetched && nextSong.url) {
+        try {
+            if (!preloaderAudio) {
+                preloaderAudio = document.createElement('audio');
+            }
+            preloaderAudio.src = nextSong.url;
+            preloaderAudio.preload = 'auto';
+            nextSong.prefetched = true;
+            console.log(`Pre-fetching next song: ${nextSong.title}`);
+        } catch (e) {
+            console.warn("Pre-fetch failed", e);
+        }
+    }
+}
+
 function loadSong(index) {
     if (!songs[index]) return;
     const song = songs[index];
@@ -465,6 +531,7 @@ function loadSong(index) {
     updateLikeButtonState();
     updateDownloadButtonState();
     updateMediaSession();
+    prefetchNextSong();
 }
 
 // Media Session API for background playing and notification control
@@ -530,6 +597,7 @@ function playSong() {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = "playing";
         }
+        requestWakeLock();
     }).catch(e => {
         console.error("Playback failed", e);
         pauseSong();
@@ -544,6 +612,7 @@ function pauseSong() {
     if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = "paused";
     }
+    releaseWakeLock();
 }
 
 function prevSong() {
@@ -622,7 +691,7 @@ function setProgress(e) {
 
 function renderPlaylist() {
     playlistContainer.innerHTML = '';
-    songs.forEach((song, index) => {
+    displayedSongs.forEach((song, index) => {
         const card = document.createElement('div');
         card.className = 'song-card';
         card.innerHTML = `
@@ -638,6 +707,7 @@ function renderPlaylist() {
             </button>
         `;
         card.addEventListener('click', () => {
+            songs = [...displayedSongs]; // Promote browsed/searched list to active play queue
             currentSongIndex = index;
             loadSong(currentSongIndex);
             playSong();
@@ -1062,6 +1132,8 @@ function renderFavorites() {
         `;
         card.addEventListener('click', () => {
             songs = [...filteredSongs];
+            displayedSongs = [...filteredSongs];
+            renderPlaylist();
             currentSongIndex = index;
             loadSong(currentSongIndex);
             playSong();
@@ -1587,7 +1659,8 @@ function renderChatboxMainView() {
                     tracksNavBtn.click();
                 }
                 fetchSongs(response.searchQuery).then(() => {
-                    if (songs.length > 0) {
+                    if (displayedSongs.length > 0) {
+                        songs = [...displayedSongs];
                         currentSongIndex = 0;
                         loadSong(currentSongIndex);
                         playSong();
@@ -1874,6 +1947,8 @@ function showImportModal(playlistName, songsList) {
 
     modal.querySelector('#import-play-btn').addEventListener('click', () => {
         songs = [...songsList];
+        displayedSongs = [...songsList];
+        renderPlaylist();
         currentSongIndex = 0;
         loadSong(currentSongIndex);
         playSong();
