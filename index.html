@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Haadio - Retro Music Player</title>
-    <link rel="stylesheet" href="style.css?v=21">
+    <link rel="stylesheet" href="style.css?v=22">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="file_000000004ed071fb8190e340809155c9.png">
     <meta name="theme-color" content="#1e222a">
@@ -86,9 +86,10 @@
                 
                 <div id="library-playlist-detail-view" class="hidden">
                     <div class="section-header-row">
-                        <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                             <button class="cat-btn" id="playlist-back-btn" style="padding: 6px 12px;"><i class="fas fa-arrow-left"></i> Back</button>
-                            <h2 id="playlist-detail-title">Playlist Name</h2>
+                            <h2 id="playlist-detail-title" style="margin: 0;">Playlist Name</h2>
+                            <button class="cat-btn" id="playlist-share-btn" style="padding: 6px 12px; background: #25d366; color: white; border: none; box-shadow: 0 4px 10px rgba(37,211,102,0.3); font-weight: 600;" title="Share Playlist via WhatsApp"><i class="fab fa-whatsapp"></i> Share</button>
                         </div>
                         <div class="mini-search-box">
                             <input type="text" id="favorites-search-input" placeholder="Search songs...">
@@ -197,7 +198,7 @@
     </div>
 
     <audio id="audio-player"></audio>
-    <script src="app.js?v=21"></script>
+    <script src="app.js?v=22"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

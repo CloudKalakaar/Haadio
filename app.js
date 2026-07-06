@@ -960,6 +960,64 @@ if (plBackBtn) {
     });
 }
 
+function utf8ToBase64(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+        return String.fromCharCode(parseInt(p1, 16));
+    }));
+}
+
+function base64ToUtf8(str) {
+    return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+}
+
+const plShareBtn = document.getElementById('playlist-share-btn');
+if (plShareBtn) {
+    plShareBtn.addEventListener('click', () => {
+        const name = currentActivePlaylistName;
+        let songsToShare = [];
+        if (name === 'Liked Songs' || !name) {
+            songsToShare = likedSongs;
+        } else {
+            const found = customPlaylists.find(p => p.name === name);
+            songsToShare = found ? found.songs : [];
+        }
+
+        if (songsToShare.length === 0) {
+            showToast("Cannot share an empty playlist!");
+            return;
+        }
+
+        try {
+            const minifiedSongs = songsToShare.map(s => ({
+                i: s.id,
+                t: s.title,
+                a: s.artist,
+                u: s.url,
+                im: s.image
+            }));
+
+            const playlistData = {
+                n: name === 'Liked Songs' ? 'Shared Liked Songs' : name,
+                s: minifiedSongs
+            };
+
+            const jsonString = JSON.stringify(playlistData);
+            const base64String = utf8ToBase64(jsonString);
+
+            const shareUrl = window.location.origin + window.location.pathname + '?import=' + base64String;
+            const shareText = `Check out my playlist "${playlistData.n}" on Haadio! 🎵\n\n${shareUrl}`;
+            
+            const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+            window.open(whatsappUrl, '_blank');
+        } catch (err) {
+            console.error("Failed to generate sharing URL:", err);
+            showToast("Failed to share playlist.");
+        }
+    });
+}
+
 function renderFavorites() {
     if (!favoritesContainer) return;
     favoritesContainer.innerHTML = '';
@@ -1196,10 +1254,141 @@ if (hardRefreshBtn) {
     });
 }
 
+function showImportModal(playlistName, songsList) {
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'import-playlist-modal';
+    modal.style.zIndex = '9999';
+    modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.pointerEvents = 'auto';
+    
+    let songsHtml = '';
+    songsList.forEach(song => {
+        songsHtml += `
+            <div class="song-card" style="pointer-events: none; margin-bottom: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                <div class="song-icon" style="width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0; background-color: rgba(255,255,255,0.05); ${song.image ? `background-image: url('${song.image}'); background-size: cover; background-position: center;` : ''}">
+                    ${song.image ? '' : '<i class="fas fa-music" style="color: var(--accent); font-size: 0.9rem;"></i>'}
+                </div>
+                <div class="song-details" style="text-align: left; flex: 1; min-width: 0;">
+                    <h4 style="margin: 0; font-size: 0.9rem; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${song.title}</h4>
+                    <p style="margin: 3px 0 0 0; font-size: 0.75rem; color: #9ba0a6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${song.artist}</p>
+                </div>
+            </div>
+        `;
+    });
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-height: 85vh; display: flex; flex-direction: column; width: 90%; max-width: 450px; background: rgba(30, 34, 42, 0.95); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.5); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 16px; padding: 20px;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: linear-gradient(135deg, #25d366, #128c7e); width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white;">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <div style="text-align: left;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Import Playlist</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.75rem; color: #9ba0a6;">Received via WhatsApp</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="close-import-btn" style="background: none; border: none; color: #9ba0a6; font-size: 1.6rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
+            </div>
+            
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-size: 0.8rem; color: #9ba0a6; display: block; margin-bottom: 6px; font-weight: 500;">Playlist Name</label>
+                <input type="text" id="import-playlist-name-input" value="${playlistName}" style="width: 100%; padding: 10px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; font-size: 0.9rem; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
+            </div>
+
+            <div class="playlist-preview-list" style="flex: 1; overflow-y: auto; margin-bottom: 20px; padding-right: 5px; max-height: 220px; display: flex; flex-direction: column; gap: 8px;">
+                ${songsHtml}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <button class="cat-btn" id="import-play-btn" style="background: var(--primary-color); border: none; font-weight: 600; padding: 10px; border-radius: 8px; color: white; cursor: pointer;"><i class="fas fa-play"></i> Play Now</button>
+                <button class="cat-btn" id="import-save-btn" style="background: #30e3ca; color: #1e222a; border: none; font-weight: 600; padding: 10px; border-radius: 8px; cursor: pointer;"><i class="fas fa-bookmark"></i> Save Playlist</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const cleanUrl = () => {
+        const url = new URL(window.location);
+        url.searchParams.delete('import');
+        window.history.replaceState({}, document.title, url.pathname + url.search);
+    };
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+        setTimeout(() => modal.remove(), 300);
+        cleanUrl();
+    };
+
+    modal.querySelector('#close-import-btn').addEventListener('click', closeModal);
+
+    modal.querySelector('#import-play-btn').addEventListener('click', () => {
+        songs = [...songsList];
+        currentSongIndex = 0;
+        loadSong(currentSongIndex);
+        playSong();
+        closeModal();
+        navBtns[0].click();
+        showToast(`Playing shared playlist "${playlistName}"`);
+    });
+
+    modal.querySelector('#import-save-btn').addEventListener('click', () => {
+        const finalName = modal.querySelector('#import-playlist-name-input').value.trim() || playlistName;
+        
+        let nameToUse = finalName;
+        let count = 1;
+        while (customPlaylists.some(p => p.name.toLowerCase() === nameToUse.toLowerCase())) {
+            nameToUse = `${finalName} (${count})`;
+            count++;
+        }
+
+        customPlaylists.push({ name: nameToUse, songs: songsList });
+        localStorage.setItem('haadio-playlists', JSON.stringify(customPlaylists));
+        renderLibrary();
+        
+        closeModal();
+        showToast(`Saved "${nameToUse}" to your Library!`);
+    });
+}
+
+function checkImportUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const importData = urlParams.get('import');
+    if (importData) {
+        try {
+            const decodedJson = base64ToUtf8(importData);
+            const playlistData = JSON.parse(decodedJson);
+            if (playlistData && playlistData.n && Array.isArray(playlistData.s)) {
+                const importedSongs = playlistData.s.map(s => ({
+                    id: s.i,
+                    title: s.t,
+                    artist: s.a,
+                    url: s.u,
+                    image: s.im
+                }));
+                
+                setTimeout(() => {
+                    showImportModal(playlistData.n, importedSongs);
+                }, 800);
+            }
+        } catch (e) {
+            console.error("Failed to parse import URL", e);
+            showToast("Failed to load shared playlist link.");
+        }
+    }
+}
+
 // Initialize database and start player
 initDB().then(() => {
     fetchSongs();
+    checkImportUrl();
 }).catch(err => {
     console.error('IndexedDB initialization failed:', err);
-    fetchSongs(); // Fallback to fetching anyway
+    fetchSongs();
+    checkImportUrl();
 });
