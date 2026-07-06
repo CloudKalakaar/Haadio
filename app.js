@@ -1616,12 +1616,41 @@ function renderChatboxMainView() {
     const input = chatbox.querySelector('#bot-chat-input');
     const sendBtn = chatbox.querySelector('#bot-send-btn');
 
+    const botMoodCache = {};
+
     const handleSend = () => {
         const query = input.value.trim();
         if (!query) return;
 
+        const cleanQuery = query.toLowerCase().trim();
         appendUserMessage(query);
         input.value = '';
+
+        const botName = botSelectedChar === 'girl' ? 'Shruti' : 'Naad';
+
+        if (botMoodCache[cleanQuery]) {
+            const cached = botMoodCache[cleanQuery];
+            appendBotMessage(cached.message);
+            
+            if (cached.songsList && cached.songsList.length > 0) {
+                songs = [...cached.songsList];
+                displayedSongs = [...cached.songsList];
+                renderPlaylist();
+                
+                const idx = songs.findIndex(s => s.id === cached.playSongId);
+                currentSongIndex = idx !== -1 ? idx : 0;
+                loadSong(currentSongIndex);
+                playSong();
+                
+                const tracksNavBtn = document.querySelector('.nav-btn[data-target="playlist"]');
+                if (tracksNavBtn) {
+                    tracksNavBtn.click();
+                }
+                
+                showToast(`DJ ${botName} replays: ${songs[currentSongIndex].title}`);
+            }
+            return;
+        }
 
         const loader = appendBotMessage("Searching vinyl racks... 💿");
 
@@ -1637,6 +1666,12 @@ function renderChatboxMainView() {
                     loadSong(currentSongIndex);
                     playSong();
                     showToast(`DJ ${botName} plays: ${songs[idx].title}`);
+                    
+                    botMoodCache[cleanQuery] = {
+                        message: response.message,
+                        playSongId: response.playSongId,
+                        songsList: [...songs]
+                    };
                 }
             } else if (response.queueSongId) {
                 const song = songs.find(s => s.id === response.queueSongId);
@@ -1665,6 +1700,12 @@ function renderChatboxMainView() {
                         loadSong(currentSongIndex);
                         playSong();
                         showToast(`DJ ${botName} plays: ${songs[0].title}`);
+                        
+                        botMoodCache[cleanQuery] = {
+                            message: response.message,
+                            playSongId: songs[0].id,
+                            songsList: [...songs]
+                        };
                     }
                 }).catch(err => {
                     console.error("Bot search failed:", err);
