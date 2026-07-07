@@ -477,21 +477,28 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 let preloaderAudio = null;
-function prefetchNextSong() {
+async function prefetchNextSong() {
     if (songs.length <= 1) return;
-    const nextIndex = (currentSongIndex + 1) % songs.length;
-    const nextSong = songs[nextIndex];
-    if (nextSong && !nextSong.audioBlob && !nextSong.prefetched && nextSong.url) {
-        try {
-            if (!preloaderAudio) {
-                preloaderAudio = document.createElement('audio');
-            }
-            preloaderAudio.src = nextSong.url;
-            preloaderAudio.preload = 'auto';
-            nextSong.prefetched = true;
-            console.log(`Pre-fetching next song: ${nextSong.title}`);
-        } catch (e) {
-            console.warn("Pre-fetch failed", e);
+    // Prefetch up to 3 upcoming songs as Blobs to handle lock screen / background throttling
+    for (let i = 1; i <= 3; i++) {
+        const nextIndex = (currentSongIndex + i) % songs.length;
+        const nextSong = songs[nextIndex];
+        if (nextSong && !nextSong.audioBlob && !nextSong.fetchingBlob && nextSong.url) {
+            nextSong.fetchingBlob = true;
+            console.log(`Pre-fetching song [${nextIndex}] Blob: ${nextSong.title}`);
+            fetch(nextSong.url).then(async response => {
+                if (response.ok) {
+                    const blob = await response.blob();
+                    nextSong.audioBlob = blob;
+                    console.log(`Successfully pre-fetched Blob for [${nextIndex}]: ${nextSong.title}`);
+                } else {
+                    console.warn(`Failed to pre-fetch song [${nextIndex}] Blob: status ${response.status}`);
+                }
+            }).catch(e => {
+                console.warn(`Pre-fetch Blob failed for [${nextIndex}]:`, e);
+            }).finally(() => {
+                nextSong.fetchingBlob = false;
+            });
         }
     }
 }
