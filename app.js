@@ -467,17 +467,25 @@ function releaseWakeLock() {
     }
 }
 
-// Handle wake lock reacquisition if document visibility changes
+// Handle wake lock reacquisition and background playback resume if document visibility changes
 document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') {
+    if (document.visibilityState === 'visible') {
         if (isPlaying) {
             await requestWakeLock();
+            if (audio.paused) {
+                console.log("Resuming background-paused audio on visibility change...");
+                audio.play().catch(e => console.warn("Auto-resume failed:", e));
+            }
         }
     }
 });
 
 let preloaderAudio = null;
 async function prefetchNextSong() {
+    if (document.visibilityState !== 'visible') {
+        console.log("Prefetch skipped: document is not visible.");
+        return;
+    }
     if (songs.length <= 1) return;
     // Prefetch up to 3 upcoming songs as Blobs to handle lock screen / background throttling
     for (let i = 1; i <= 3; i++) {
@@ -622,8 +630,11 @@ function playSong() {
         }
         requestWakeLock();
     }).catch(e => {
-        console.error("Playback failed", e);
-        pauseSong();
+        console.warn("Playback play() failed in current state:", e);
+        audio.pause();
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = "paused";
+        }
     });
 }
 
