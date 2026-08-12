@@ -751,6 +751,39 @@ async function resolveYoutubeId(song) {
     return null;
 }
 
+async function resolveDirectAudioStream(videoId) {
+    if (!videoId) return null;
+    const streamUrls = [
+        `https://api.piped.private.coffee/streams/${videoId}`,
+        `https://pipedapi.kavin.rocks/streams/${videoId}`,
+        `https://yt.drgnz.club/api/v1/videos/${videoId}`,
+        `https://invidious.nerdvpn.de/api/v1/videos/${videoId}`
+    ];
+    
+    const streamPromises = streamUrls.map(async (url) => {
+        const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        
+        if (data.audioStreams && Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+            const m4a = data.audioStreams.find(s => s.mimeType && s.mimeType.includes('audio/mp4'));
+            return m4a ? m4a.url : data.audioStreams[0].url;
+        }
+        if (data.adaptiveFormats && Array.isArray(data.adaptiveFormats)) {
+            const audioFormat = data.adaptiveFormats.find(f => f.type && f.type.includes('audio'));
+            if (audioFormat && audioFormat.url) return audioFormat.url;
+        }
+        throw new Error("No audio stream found");
+    });
+    
+    try {
+        return await Promise.any(streamPromises);
+    } catch (e) {
+        console.warn("Direct audio stream resolution failed:", e);
+        return null;
+    }
+}
+
 let preloaderAudio = null;
 async function prefetchNextSong() {
     if (document.visibilityState !== 'visible' && !isPlaying) {
@@ -862,7 +895,22 @@ async function loadSong(index) {
                 trackArtist.textContent = song.artist;
                 applyMarquee(trackArtist);
                 
-                if (ytPlayer && ytPlayerReady) {
+                // Fetch direct native audio stream to ensure continuous playback when app is minimized / screen locked
+                const directAudioUrl = await resolveDirectAudioStream(ytId);
+                
+                if (currentResolvingSongId !== songId) return;
+                
+                if (directAudioUrl) {
+                    console.log("Found direct native audio stream for background playback!");
+                    audio.src = directAudioUrl;
+                    audio.loop = false;
+                    audio.load();
+                    if (shouldPlay) {
+                        isPlaying = true;
+                        playSong();
+                    }
+                } else if (ytPlayer && ytPlayerReady) {
+                    console.log("Direct stream fallback to YouTube player embed.");
                     progressBar.value = 0;
                     currentTimeEl.textContent = "0:00";
                     totalTimeEl.textContent = "0:00";
@@ -872,6 +920,13 @@ async function loadSong(index) {
                         playSong();
                     } else {
                         ytPlayer.cueVideoById(ytId);
+                    }
+                } else {
+                    audio.src = song.url;
+                    audio.load();
+                    if (shouldPlay) {
+                        isPlaying = true;
+                        playSong();
                     }
                 }
             } else {
@@ -1022,13 +1077,32 @@ function playSong() {
     playBtn.innerHTML = '<i class="fas fa-pause"></i>';
     record.classList.add('playing');
     
-    if (isYouTubeSong(song) && song.ytVideoId) {
+    const silentUrl = getSilentAudioBlobUrl();
+    const hasDirectAudio = audio.src && audio.src !== '' && audio.src !== window.location.href && audio.src !== silentUrl;
+    
+    if (hasDirectAudio) {
+        audio.loop = false;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                isPlaying = true;
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                record.classList.add('playing');
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = "playing";
+                }
+                requestWakeLock();
+            }).catch(e => {
+                console.warn("Playback play() interrupted or loading:", e);
+                resetPlayStateToPaused();
+            });
+        }
+    } else if (isYouTubeSong(song) && song.ytVideoId) {
         if (ytPlayer && ytPlayerReady && typeof ytPlayer.playVideo === 'function') {
             ytPlayer.playVideo();
             startProgressLoop();
             
             // Loop silent audio stream to keep browser tab and Lock Screen Media Controls awake
-            const silentUrl = getSilentAudioBlobUrl();
             if (audio.src !== silentUrl) {
                 audio.src = silentUrl;
                 audio.loop = true;
@@ -1047,42 +1121,9 @@ function playSong() {
             });
         } else {
             console.warn("YouTube player not ready, playing silent backing stream...");
-            const silentUrl = getSilentAudioBlobUrl();
             audio.src = silentUrl;
             audio.loop = true;
             audio.play().catch(e => console.warn(e));
-        }
-    } else {
-        if (!audio.src) return;
-        audio.loop = false;
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                isPlaying = true;
-                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                record.classList.add('playing');
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.playbackState = "playing";
-                }
-                requestWakeLock();
-            }).catch(e => {
-                console.warn("Playback play() interrupted or loading:", e);
-                if (audio.readyState < 2) {
-                    // Audio is still loading/buffering, auto-play as soon as buffering completes
-                    const autoPlayOnReady = () => {
-                        if (isPlaying) {
-                            audio.play().then(() => {
-                                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                                record.classList.add('playing');
-                                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-                            }).catch(() => resetPlayStateToPaused());
-                        }
-                    };
-                    audio.addEventListener('canplay', autoPlayOnReady, { once: true });
-                } else {
-                    resetPlayStateToPaused();
-                }
-            });
         }
     }
 }
