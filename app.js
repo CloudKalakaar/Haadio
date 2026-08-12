@@ -275,9 +275,7 @@ function mapJamendoTrack(track) {
 function isJunkTrack(track) {
     const junkPatterns = [
         /karaoke/i, /instrumental/i, /\b8[- ]?bit\b/i, /\b16[- ]?bit\b/i,
-        /\bremix\b/i, /\bdj\b/i, /\bsped up\b/i, /\bslowed\b/i, /\breverb\b/i,
-        /\bcover\b/i, /\btribut/i, /\bmedley\b/i, /\btechno\b/i, /\bmashup\b/i,
-        /\bringtone\b/i, /\bacoustic version\b/i, /\bpiano version\b/i
+        /\bsped up\b/i, /\bslowed\b/i, /\breverb\b/i, /\bringtone\b/i
     ];
     const title = (track.name || track.title || "").toLowerCase();
     const lang = (track.language || "").toLowerCase();
@@ -289,22 +287,6 @@ function isJunkTrack(track) {
     return junkPatterns.some(p => p.test(title));
 }
 
-// Check if a JioSaavn track is actually performed by the searched artist
-function isActualArtistTrack(track, searchQuery) {
-    const queryTerms = searchQuery.toLowerCase().split(/\s+/);
-    const primaryArtists = (track.artists && track.artists.primary) || [];
-    const singersList = (track.artists && track.artists.all || []).filter(a => a.role === 'singer');
-    
-    const allPerformers = [...primaryArtists, ...singersList];
-    
-    return allPerformers.some(artist => {
-        const artistName = (artist.name || "").toLowerCase();
-        // At least 2 query terms must match the artist name (e.g. "justin" and "bieber")
-        const matchCount = queryTerms.filter(term => artistName.includes(term)).length;
-        return matchCount >= Math.min(2, queryTerms.length);
-    });
-}
-
 const SAAVN_BASE_URLS = [
     'https://saavn.sumit.co',
     'https://jiosaavn-api-eight.vercel.app',
@@ -314,20 +296,22 @@ const SAAVN_BASE_URLS = [
 ];
 
 async function fetchSaavnEndpoint(path) {
-    for (const baseUrl of SAAVN_BASE_URLS) {
-        try {
-            const res = await fetch(`${baseUrl}${path}`, { signal: AbortSignal.timeout(3500) });
-            if (res.ok) {
-                const json = await res.json();
-                if (json && (json.success || json.status === 'SUCCESS' || (json.data && json.data.results))) {
-                    return json;
-                }
-            }
-        } catch (e) {
-            console.warn(`Saavn host ${baseUrl} failed:`, e);
+    const fetchPromises = SAAVN_BASE_URLS.map(async (baseUrl) => {
+        const res = await fetch(`${baseUrl}${path}`, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json && (json.success || json.status === 'SUCCESS' || (json.data && (json.data.results || json.data.songs || Array.isArray(json.data))))) {
+            return json;
         }
+        throw new Error("Invalid response format");
+    });
+
+    try {
+        return await Promise.any(fetchPromises);
+    } catch (err) {
+        console.warn("All Saavn mirrors failed or timed out:", err);
+        return null;
     }
-    return null;
 }
 
 async function fetchSongs(category = "trending") {
@@ -343,7 +327,7 @@ async function fetchSongs(category = "trending") {
 
     let searchQuery = category;
     if (category === "trending") {
-        searchQuery = "latest kannada";
+        searchQuery = "latest songs";
     }
     
     const saavnSongsPromise = fetchSaavnEndpoint(`/api/search/songs?query=${encodeURIComponent(searchQuery)}&limit=40`);
@@ -368,15 +352,10 @@ async function fetchSongs(category = "trending") {
         let audiusSongs = [];
         let jamendoSongs = [];
 
-        // Process JioSaavn results with junk filtering
-        if (songsJson && songsJson.data && songsJson.data.results && songsJson.data.results.length > 0) {
-            const cleanResults = songsJson.data.results.filter(track => {
-                if (isJunkTrack(track)) return false;
-                if (category !== "trending") {
-                    return isActualArtistTrack(track, searchQuery);
-                }
-                return true;
-            });
+        // Process JioSaavn results
+        const saavnResults = (songsJson && songsJson.data) ? (songsJson.data.results || songsJson.data.songs || (Array.isArray(songsJson.data) ? songsJson.data : [])) : [];
+        if (saavnResults.length > 0) {
+            const cleanResults = saavnResults.filter(track => !isJunkTrack(track));
             saavnSongs = cleanResults.map(track => mapAPITrack(track)).filter(song => song.url !== "");
         }
 
@@ -937,6 +916,15 @@ function togglePlay() {
     }
 }
 
+function resetPlayStateToPaused() {
+    isPlaying = false;
+    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+    record.classList.remove('playing');
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = "paused";
+    }
+}
+
 function playSong() {
     if (songs.length === 0 || !songs[currentSongIndex]) return;
     const song = songs[currentSongIndex];
@@ -950,15 +938,17 @@ function playSong() {
             startProgressLoop();
             
             // Loop silent audio stream to keep browser tab and Lock Screen Media Controls awake
-            audio.src = SILENT_AUDIO_URL;
-            audio.loop = true;
+            if (audio.src !== SILENT_AUDIO_URL) {
+                audio.src = SILENT_AUDIO_URL;
+                audio.loop = true;
+            }
             audio.play().then(() => {
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = "playing";
                 }
                 requestWakeLock();
             }).catch(e => {
-                console.warn("Silent audio playback failed, keeping YouTube playing:", e);
+                console.warn("Silent audio playback deferred:", e);
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = "playing";
                 }
@@ -972,18 +962,35 @@ function playSong() {
     } else {
         if (!audio.src) return;
         audio.loop = false;
-        audio.play().then(() => {
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = "playing";
-            }
-            requestWakeLock();
-        }).catch(e => {
-            console.warn("Playback play() failed in current state:", e);
-            audio.pause();
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = "paused";
-            }
-        });
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                isPlaying = true;
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                record.classList.add('playing');
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = "playing";
+                }
+                requestWakeLock();
+            }).catch(e => {
+                console.warn("Playback play() interrupted or loading:", e);
+                if (audio.readyState < 2) {
+                    // Audio is still loading/buffering, auto-play as soon as buffering completes
+                    const autoPlayOnReady = () => {
+                        if (isPlaying) {
+                            audio.play().then(() => {
+                                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                                record.classList.add('playing');
+                                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
+                            }).catch(() => resetPlayStateToPaused());
+                        }
+                    };
+                    audio.addEventListener('canplay', autoPlayOnReady, { once: true });
+                } else {
+                    resetPlayStateToPaused();
+                }
+            });
+        }
     }
 }
 
