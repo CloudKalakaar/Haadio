@@ -26,6 +26,7 @@ let ytPlayer = null;
 let ytPlayerReady = false;
 let progressInterval = null;
 let currentResolvingSongId = null;
+let isSwitchingTrack = false;
 const SILENT_AUDIO_URL = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
 function isYouTubeSong(song) {
@@ -717,10 +718,18 @@ async function prefetchNextSong() {
 }
 
 async function loadSong(index) {
+    if (songs.length === 0) return;
+    if (index < 0) index = 0;
+    if (index >= songs.length) index = songs.length - 1;
+    
     if (!songs[index]) return;
     const song = songs[index];
     const songId = song.id;
     currentResolvingSongId = songId;
+    
+    // Capture user's play intent before pausing active players
+    const shouldPlay = isPlaying;
+    isSwitchingTrack = true;
     
     // Pause both audio context and YouTube player to prevent double play
     audio.pause();
@@ -792,7 +801,8 @@ async function loadSong(index) {
                     progressBar.value = 0;
                     currentTimeEl.textContent = "0:00";
                     totalTimeEl.textContent = "0:00";
-                    if (isPlaying) {
+                    if (shouldPlay) {
+                        isPlaying = true;
                         ytPlayer.loadVideoById(ytId);
                         playSong();
                     } else {
@@ -805,7 +815,8 @@ async function loadSong(index) {
                 applyMarquee(trackArtist);
                 audio.src = song.url;
                 audio.load();
-                if (isPlaying) {
+                if (shouldPlay) {
+                    isPlaying = true;
                     playSong();
                 }
             }
@@ -816,7 +827,8 @@ async function loadSong(index) {
             applyMarquee(trackArtist);
             audio.src = song.url;
             audio.load();
-            if (isPlaying) {
+            if (shouldPlay) {
+                isPlaying = true;
                 playSong();
             }
         }
@@ -827,8 +839,13 @@ async function loadSong(index) {
             audio.src = song.url;
         }
         audio.load();
+        if (shouldPlay) {
+            isPlaying = true;
+            playSong();
+        }
     }
     
+    isSwitchingTrack = false;
     prefetchNextSong();
 }
 
@@ -2508,12 +2525,14 @@ window.onYouTubeIframeAPIReady = function() {
                         navigator.mediaSession.playbackState = "playing";
                     }
                 } else if (event.data === 2) {
-                    isPlaying = false;
-                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
-                    record.classList.remove('playing');
-                    stopProgressLoop();
-                    if ('mediaSession' in navigator) {
-                        navigator.mediaSession.playbackState = "paused";
+                    if (!isSwitchingTrack) {
+                        isPlaying = false;
+                        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                        record.classList.remove('playing');
+                        stopProgressLoop();
+                        if ('mediaSession' in navigator) {
+                            navigator.mediaSession.playbackState = "paused";
+                        }
                     }
                 } else if (event.data === 0) {
                     nextSong();
