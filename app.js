@@ -206,30 +206,55 @@ function decodeHTMLEntities(text) {
 
 function mapAPITrack(track) {
     let audioUrl = "";
-    if (track.downloadUrl && track.downloadUrl.length > 0) {
+    
+    if (Array.isArray(track.downloadUrl) && track.downloadUrl.length > 0) {
         const highQuality = track.downloadUrl.find(d => d.quality === '320kbps') || 
                             track.downloadUrl.find(d => d.quality === '160kbps') || 
+                            track.downloadUrl.find(d => d.quality === '96kbps') || 
                             track.downloadUrl[track.downloadUrl.length - 1];
-        audioUrl = highQuality ? highQuality.url : "";
+        audioUrl = highQuality ? (highQuality.url || highQuality.link || "") : "";
+    } else if (typeof track.downloadUrl === 'string' && track.downloadUrl.length > 5) {
+        audioUrl = track.downloadUrl;
+    } else if (track.media_url) {
+        audioUrl = track.media_url;
+    } else if (track.media_preview_url) {
+        audioUrl = track.media_preview_url;
+    } else if (track.more_info) {
+        if (Array.isArray(track.more_info.downloadUrl) && track.more_info.downloadUrl.length > 0) {
+            const hq = track.more_info.downloadUrl.find(d => d.quality === '320kbps') || track.more_info.downloadUrl[0];
+            audioUrl = hq ? (hq.url || hq.link || "") : "";
+        } else if (track.more_info.media_url) {
+            audioUrl = track.more_info.media_url;
+        }
+    } else if (track.url && (track.url.includes('.mp3') || track.url.includes('.m4a') || track.url.includes('saavncdn'))) {
+        audioUrl = track.url;
     }
     
     let imgUrl = "";
-    if (track.image && track.image.length > 0) {
+    if (Array.isArray(track.image) && track.image.length > 0) {
         const highQualityImg = track.image.find(i => i.quality === '500x500') || 
                                track.image.find(i => i.quality === '150x150') || 
                                track.image[track.image.length - 1];
-        imgUrl = highQualityImg ? highQualityImg.url : "";
+        imgUrl = highQualityImg ? (highQualityImg.url || highQualityImg.link || "") : "";
+    } else if (typeof track.image === 'string') {
+        imgUrl = track.image;
+    } else if (track.more_info && track.more_info.image) {
+        imgUrl = typeof track.more_info.image === 'string' ? track.more_info.image : "";
     }
     
     let artistName = "Unknown Artist";
     if (track.artists && track.artists.primary && track.artists.primary.length > 0) {
         artistName = track.artists.primary.map(a => decodeHTMLEntities(a.name)).join(', ');
-    } else if (track.primaryArtists) {
-        artistName = track.primaryArtists;
+    } else if (typeof track.primaryArtists === 'string') {
+        artistName = decodeHTMLEntities(track.primaryArtists);
+    } else if (typeof track.artist === 'string') {
+        artistName = decodeHTMLEntities(track.artist);
+    } else if (track.more_info && track.more_info.singers) {
+        artistName = decodeHTMLEntities(track.more_info.singers);
     }
     
     return {
-        id: track.id,
+        id: track.id || `saavn-${Math.random().toString(36).substr(2, 9)}`,
         title: decodeHTMLEntities(track.name || track.title) || "Unknown Title",
         artist: artistName,
         url: audioUrl,
@@ -787,12 +812,14 @@ async function loadSong(index) {
                 applyMarquee(trackArtist);
                 
                 if (ytPlayer && ytPlayerReady) {
-                    ytPlayer.cueVideoById(ytId);
                     progressBar.value = 0;
                     currentTimeEl.textContent = "0:00";
                     totalTimeEl.textContent = "0:00";
                     if (isPlaying) {
+                        ytPlayer.loadVideoById(ytId);
                         playSong();
+                    } else {
+                        ytPlayer.cueVideoById(ytId);
                     }
                 }
             } else {
@@ -800,6 +827,7 @@ async function loadSong(index) {
                 trackArtist.textContent = song.artist + " (Preview)";
                 applyMarquee(trackArtist);
                 audio.src = song.url;
+                audio.load();
                 if (isPlaying) {
                     playSong();
                 }
@@ -810,6 +838,7 @@ async function loadSong(index) {
             trackArtist.textContent = song.artist + " (Preview)";
             applyMarquee(trackArtist);
             audio.src = song.url;
+            audio.load();
             if (isPlaying) {
                 playSong();
             }
@@ -820,6 +849,7 @@ async function loadSong(index) {
         } else {
             audio.src = song.url;
         }
+        audio.load();
     }
     
     prefetchNextSong();
@@ -927,6 +957,7 @@ function resetPlayStateToPaused() {
 
 function playSong() {
     if (songs.length === 0 || !songs[currentSongIndex]) return;
+    consecutiveFailures = 0;
     const song = songs[currentSongIndex];
     isPlaying = true;
     playBtn.innerHTML = '<i class="fas fa-pause"></i>';
@@ -1139,12 +1170,36 @@ function renderPlaylist() {
     });
 }
 
+let consecutiveFailures = 0;
+
+function handleTrackPlaybackError() {
+    consecutiveFailures++;
+    console.warn(`Audio playback error (consecutive failures: ${consecutiveFailures})`);
+    if (consecutiveFailures >= 3) {
+        showToast("Unable to play selected tracks. Stopped auto-skipping.");
+        consecutiveFailures = 0;
+        pauseSong();
+    } else {
+        showToast("Track unplayable, skipping...");
+        setTimeout(() => {
+            nextSong();
+        }, 500);
+    }
+}
+
 // Event Listeners
 playBtn.addEventListener('click', togglePlay);
 prevBtn.addEventListener('click', prevSong);
 nextBtn.addEventListener('click', nextSong);
 audio.addEventListener('timeupdate', updateProgress);
-audio.addEventListener('ended', nextSong);
+audio.addEventListener('ended', () => {
+    consecutiveFailures = 0;
+    nextSong();
+});
+audio.addEventListener('error', (e) => {
+    if (audio.src && audio.src.startsWith('data:audio')) return;
+    handleTrackPlaybackError();
+});
 progressBar.addEventListener('input', setProgress);
 
 function updateControlsUI() {
