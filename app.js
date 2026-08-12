@@ -60,10 +60,10 @@ async function releaseWakeLock() {
 let SILENT_AUDIO_BLOB_URL = null;
 function getSilentAudioBlobUrl() {
     if (!SILENT_AUDIO_BLOB_URL) {
-        const sampleRate = 8000;
+        const sampleRate = 44100;  // Higher sample rate for browser compatibility
         const numChannels = 1;
         const bitsPerSample = 16;
-        const durationSeconds = 3;
+        const durationSeconds = 30; // 30s so Chrome won't throttle background audio
         const numSamples = sampleRate * durationSeconds;
         const dataLength = numSamples * (bitsPerSample / 8);
         const buffer = new ArrayBuffer(44 + dataLength);
@@ -87,6 +87,7 @@ function getSilentAudioBlobUrl() {
         view.setUint16(34, bitsPerSample, true);
         writeString(36, 'data');
         view.setUint32(40, dataLength, true);
+        // Leave PCM data as all zeros (silence)
 
         const blob = new Blob([buffer], { type: 'audio/wav' });
         SILENT_AUDIO_BLOB_URL = URL.createObjectURL(blob);
@@ -993,12 +994,25 @@ function startProgressLoop() {
     if (progressInterval) clearInterval(progressInterval);
     progressInterval = setInterval(() => {
         if (!isPlaying) return;
-        // Always prefer native audio element for progress tracking (background-safe)
-        if (!audio.paused && audio.duration > 0) {
-            const progressPercent = (audio.currentTime / audio.duration) * 100;
-            progressBar.value = progressPercent;
-            currentTimeEl.textContent = formatTime(audio.currentTime);
-            totalTimeEl.textContent = formatTime(audio.duration);
+        const song = songs[currentSongIndex];
+        if (song && isYouTubeSong(song) && song.ytVideoId) {
+            // YouTube iframe is the audio source — read time from YT player
+            if (ytPlayer && ytPlayerReady && typeof ytPlayer.getCurrentTime === 'function') {
+                const currentTime = ytPlayer.getCurrentTime();
+                const duration = ytPlayer.getDuration();
+                if (duration > 0) {
+                    progressBar.value = (currentTime / duration) * 100;
+                    currentTimeEl.textContent = formatTime(currentTime);
+                    totalTimeEl.textContent = formatTime(duration);
+                }
+            }
+        } else {
+            // Native audio element is the audio source (JioSaavn / iTunes preview fallback)
+            if (!audio.paused && audio.duration > 0) {
+                progressBar.value = (audio.currentTime / audio.duration) * 100;
+                currentTimeEl.textContent = formatTime(audio.currentTime);
+                totalTimeEl.textContent = formatTime(audio.duration);
+            }
         }
     }, 500);
 }
