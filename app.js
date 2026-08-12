@@ -521,8 +521,9 @@ async function playAlbum(albumId, albumTitle) {
 
         if (albumSongs.length > 0) {
             songs = albumSongs;
-            initPlayer();
-            playSong();
+            currentSongIndex = 0;
+            isPlaying = true;
+            loadSong(currentSongIndex);
             
             const notification = document.createElement('div');
             notification.style.position = 'fixed';
@@ -1020,6 +1021,7 @@ function pauseSong() {
 
 function prevSong() {
     if (songs.length === 0) return;
+    isPlaying = true;
     currentSongIndex--;
     if (currentSongIndex < 0) {
         currentSongIndex = songs.length - 1;
@@ -1029,6 +1031,7 @@ function prevSong() {
 
 function nextSong() {
     if (songs.length === 0) return;
+    isPlaying = true;
     
     if (playQueue.length > 0) {
         const nextQueuedSong = playQueue.shift();
@@ -1571,8 +1574,8 @@ function renderFavorites() {
             displayedSongs = [...filteredSongs];
             renderPlaylist();
             currentSongIndex = index;
+            isPlaying = true;
             loadSong(currentSongIndex);
-            playSong();
             navBtns[0].click();
         });
         const queueBtn = card.querySelector('.card-queue-btn');
@@ -1708,8 +1711,8 @@ function renderDownloads() {
             card.addEventListener('click', () => {
                 songs = [...filteredSongs];
                 currentSongIndex = index;
+                isPlaying = true;
                 loadSong(currentSongIndex);
-                playSong();
                 navBtns[0].click(); // Navigate to player
             });
             const queueBtn = card.querySelector('.card-queue-btn');
