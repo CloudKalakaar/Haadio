@@ -723,6 +723,8 @@ async function loadSong(index) {
     
     // Pause both audio context and YouTube player to prevent double play
     audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
     if (ytPlayer && ytPlayerReady && typeof ytPlayer.pauseVideo === 'function') {
         ytPlayer.pauseVideo();
     }
@@ -1023,7 +1025,6 @@ function prevSong() {
         currentSongIndex = songs.length - 1;
     }
     loadSong(currentSongIndex);
-    if (isPlaying) playSong();
 }
 
 function nextSong() {
@@ -1062,7 +1063,6 @@ function nextSong() {
         }
     }
     loadSong(currentSongIndex);
-    if (isPlaying) playSong();
 }
 
 function updateProgress(e) {
@@ -1129,8 +1129,8 @@ function renderPlaylist() {
         card.addEventListener('click', () => {
             songs = [...displayedSongs]; // Promote browsed/searched list to active play queue
             currentSongIndex = index;
+            isPlaying = true;
             loadSong(currentSongIndex);
-            playSong();
             navBtns[0].click(); // Navigate to player
         });
         const queueBtn = card.querySelector('.card-queue-btn');
