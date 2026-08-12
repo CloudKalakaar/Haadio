@@ -686,7 +686,13 @@ document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
         if (isPlaying) {
             await requestWakeLock();
-            if (audio.paused) {
+            const song = songs[currentSongIndex];
+            if (song && isYouTubeSong(song) && ytPlayer && ytPlayerReady && typeof ytPlayer.playVideo === 'function') {
+                if (ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== 1) {
+                    ytPlayer.playVideo();
+                }
+            }
+            if (audio.paused && audio.src) {
                 console.log("Resuming background-paused audio on visibility change...");
                 audio.play().catch(e => console.warn("Auto-resume failed:", e));
             }
@@ -2634,6 +2640,13 @@ window.onYouTubeIframeAPIReady = function() {
                         navigator.mediaSession.playbackState = "playing";
                     }
                 } else if (event.data === 2) {
+                    if (document.hidden || document.visibilityState === 'hidden') {
+                        console.log("Background YT pause ignored to keep media session active.");
+                        if (isPlaying && audio.paused && audio.src) {
+                            audio.play().catch(e => console.warn(e));
+                        }
+                        return;
+                    }
                     if (!isSwitchingTrack) {
                         isPlaying = false;
                         playBtn.innerHTML = '<i class="fas fa-play"></i>';
