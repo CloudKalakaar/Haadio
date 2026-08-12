@@ -800,6 +800,23 @@ async function resolveDirectAudioStream(videoId) {
     }
 }
 
+// Fetch a direct audio stream URL as a Blob and return a local blob:// URL
+// Blob URLs play via native HTML5 audio — ALWAYS background-safe on Android/iOS
+async function fetchAudioAsBlob(streamUrl) {
+    try {
+        const response = await fetch(streamUrl, {
+            signal: AbortSignal.timeout(20000) // 20s timeout for full song fetch
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (blob.size < 10000) throw new Error('Blob too small, likely error page');
+        return URL.createObjectURL(blob);
+    } catch (e) {
+        console.warn('fetchAudioAsBlob failed:', e);
+        return null;
+    }
+}
+
 let preloaderAudio = null;
 async function prefetchNextSong() {
     if (document.visibilityState !== 'visible' && !isPlaying) {
@@ -897,55 +914,82 @@ async function loadSong(index) {
     updateMediaSession();
     
     if (isYouTubeSong(song)) {
-        trackArtist.textContent = "Sourcing full track...";
-        applyMarquee(trackArtist);
-        
-        try {
-            const ytId = await resolveYoutubeId(song);
-            
-            if (currentResolvingSongId !== songId) return;
-            
-            if (ytId) {
-                console.log(`Resolved YouTube Video ID: ${ytId}`);
-                trackArtist.textContent = song.artist;
-                applyMarquee(trackArtist);
-                
-                if (ytPlayer && ytPlayerReady) {
-                    progressBar.value = 0;
-                    currentTimeEl.textContent = "0:00";
-                    totalTimeEl.textContent = "0:00";
-                    if (shouldPlay) {
-                        isPlaying = true;
-                        ytPlayer.loadVideoById(ytId);
-                        playSong();
-                    } else {
-                        ytPlayer.cueVideoById(ytId);
-                    }
-                }
-            } else {
-                // YouTube ID resolution failed — fall back to iTunes 30s preview
-                console.warn("YouTube ID resolution failed, falling back to iTunes preview");
-                trackArtist.textContent = song.artist + " (Preview)";
+        // Step 1: Play 30s iTunes preview IMMEDIATELY via native audio (background-safe)
+        if (song.audioBlobUrl) {
+            // Already fetched previously — play cached blob directly (full track)
+            console.log("Using cached audio blob for:", song.title);
+            trackArtist.textContent = song.artist;
+            applyMarquee(trackArtist);
+            audio.src = song.audioBlobUrl;
+            audio.loop = false;
+            audio.load();
+            if (shouldPlay) { isPlaying = true; playSong(); }
+        } else {
+            // Play 30s preview while we fetch the full track blob in background
+            if (song.url) {
+                trackArtist.textContent = "Loading full track...";
                 applyMarquee(trackArtist);
                 audio.src = song.url;
                 audio.loop = false;
                 audio.load();
-                if (shouldPlay) {
-                    isPlaying = true;
-                    playSong();
-                }
+                if (shouldPlay) { isPlaying = true; playSong(); }
             }
-        } catch (e) {
-            console.error("YouTube resolution error:", e);
-            if (currentResolvingSongId !== songId) return;
-            trackArtist.textContent = song.artist + " (Preview)";
-            applyMarquee(trackArtist);
-            audio.src = song.url;
-            audio.loop = false;
-            audio.load();
-            if (shouldPlay) {
-                isPlaying = true;
-                playSong();
+
+            // Step 2: Resolve YouTube ID + fetch full audio as Blob in background
+            try {
+                const ytId = await resolveYoutubeId(song);
+                if (currentResolvingSongId !== songId) return;
+
+                if (ytId) {
+                    trackArtist.textContent = "Fetching full track...";
+                    applyMarquee(trackArtist);
+
+                    const streamUrl = await resolveDirectAudioStream(ytId);
+                    if (currentResolvingSongId !== songId) return;
+
+                    if (streamUrl) {
+                        const blobUrl = await fetchAudioAsBlob(streamUrl);
+                        if (currentResolvingSongId !== songId) return;
+
+                        if (blobUrl) {
+                            // Cache on song object for instant replay next time
+                            song.audioBlobUrl = blobUrl;
+                            song.ytVideoId = ytId;
+
+                            console.log("Full audio blob ready — switching to local playback:", song.title);
+                            trackArtist.textContent = song.artist;
+                            applyMarquee(trackArtist);
+
+                            // Seamlessly swap to the blob URL (plays from local memory)
+                            const wasPlaying = isPlaying;
+                            const savedTime = 0; // Start from beginning
+                            audio.src = blobUrl;
+                            audio.loop = false;
+                            audio.load();
+                            if (wasPlaying) {
+                                isPlaying = true;
+                                playSong();
+                            }
+                        } else {
+                            // Blob fetch failed — stay on 30s preview
+                            trackArtist.textContent = song.artist + " (Preview)";
+                            applyMarquee(trackArtist);
+                        }
+                    } else {
+                        // No stream URL found — stay on 30s preview
+                        trackArtist.textContent = song.artist + " (Preview)";
+                        applyMarquee(trackArtist);
+                    }
+                } else {
+                    // No YouTube ID — stay on 30s preview
+                    trackArtist.textContent = song.artist + " (Preview)";
+                    applyMarquee(trackArtist);
+                }
+            } catch (e) {
+                console.error("Full track fetch error:", e);
+                if (currentResolvingSongId !== songId) return;
+                trackArtist.textContent = song.artist + " (Preview)";
+                applyMarquee(trackArtist);
             }
         }
     } else {
@@ -994,25 +1038,11 @@ function startProgressLoop() {
     if (progressInterval) clearInterval(progressInterval);
     progressInterval = setInterval(() => {
         if (!isPlaying) return;
-        const song = songs[currentSongIndex];
-        if (song && isYouTubeSong(song) && song.ytVideoId) {
-            // YouTube iframe is the audio source — read time from YT player
-            if (ytPlayer && ytPlayerReady && typeof ytPlayer.getCurrentTime === 'function') {
-                const currentTime = ytPlayer.getCurrentTime();
-                const duration = ytPlayer.getDuration();
-                if (duration > 0) {
-                    progressBar.value = (currentTime / duration) * 100;
-                    currentTimeEl.textContent = formatTime(currentTime);
-                    totalTimeEl.textContent = formatTime(duration);
-                }
-            }
-        } else {
-            // Native audio element is the audio source (JioSaavn / iTunes preview fallback)
-            if (!audio.paused && audio.duration > 0) {
-                progressBar.value = (audio.currentTime / audio.duration) * 100;
-                currentTimeEl.textContent = formatTime(audio.currentTime);
-                totalTimeEl.textContent = formatTime(audio.duration);
-            }
+        // All songs now play through native audio element (blob URL / CDN URL)
+        if (!audio.paused && audio.duration > 0) {
+            progressBar.value = (audio.currentTime / audio.duration) * 100;
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+            totalTimeEl.textContent = formatTime(audio.duration);
         }
     }, 500);
 }
@@ -1075,56 +1105,38 @@ function resetPlayStateToPaused() {
 function playSong() {
     if (songs.length === 0 || !songs[currentSongIndex]) return;
     consecutiveFailures = 0;
-    const song = songs[currentSongIndex];
     isPlaying = true;
     playBtn.innerHTML = '<i class="fas fa-pause"></i>';
     record.classList.add('playing');
     
-    if (isYouTubeSong(song) && song.ytVideoId) {
-        // Full track via YouTube iframe — play it and keep silent audio alive for lock screen
-        if (ytPlayer && ytPlayerReady && typeof ytPlayer.playVideo === 'function') {
-            ytPlayer.playVideo();
+    // All audio now plays through native HTML5 audio element
+    // (blob URL / JioSaavn CDN / iTunes preview CDN)
+    // This guarantees background playback on Android/iOS
+    if (!audio.src || audio.src === '' || audio.src === window.location.href) return;
+    
+    audio.loop = false;
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            isPlaying = true;
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
             startProgressLoop();
-            const silentUrl = getSilentAudioBlobUrl();
-            if (audio.src !== silentUrl) {
-                audio.src = silentUrl;
-                audio.loop = true;
+            requestWakeLock();
+        }).catch(e => {
+            console.warn("Playback play() interrupted or loading:", e);
+            if (audio.readyState < 2) {
+                const autoPlayOnReady = () => {
+                    if (isPlaying) {
+                        audio.play()
+                            .then(() => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing"; })
+                            .catch(() => resetPlayStateToPaused());
+                    }
+                };
+                audio.addEventListener('canplay', autoPlayOnReady, { once: true });
+            } else {
+                resetPlayStateToPaused();
             }
-            audio.play().then(() => {
-                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-                requestWakeLock();
-            }).catch(e => {
-                console.warn("Silent audio keepalive deferred:", e);
-                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-                requestWakeLock();
-            });
-        }
-    } else if (audio.src && audio.src !== '' && audio.src !== window.location.href) {
-        // Native audio — JioSaavn direct stream / iTunes preview fallback
-        audio.loop = false;
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                isPlaying = true;
-                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
-                startProgressLoop();
-                requestWakeLock();
-            }).catch(e => {
-                console.warn("Playback play() interrupted or loading:", e);
-                if (audio.readyState < 2) {
-                    const autoPlayOnReady = () => {
-                        if (isPlaying) {
-                            audio.play()
-                                .then(() => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing"; })
-                                .catch(() => resetPlayStateToPaused());
-                        }
-                    };
-                    audio.addEventListener('canplay', autoPlayOnReady, { once: true });
-                } else {
-                    resetPlayStateToPaused();
-                }
-            });
-        }
+        });
     }
 }
 
