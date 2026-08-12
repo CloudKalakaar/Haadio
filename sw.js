@@ -1,4 +1,4 @@
-const CACHE_NAME = 'haadio-cache-v40';
+const CACHE_NAME = 'haadio-cache-v41';
 const urlsToCache = [
   './',
   './index.html',
@@ -36,9 +36,10 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Bypass service worker for external API endpoints and audio streams
   if (event.request.url.includes('saavn.sumit.co') || 
       event.request.url.includes('itunes.apple.com') || 
+      event.request.url.includes('api.audius.co') || 
+      event.request.url.includes('api.jamendo.com') || 
       event.request.url.includes('.mp3') ||
       event.request.url.includes('.m4a') ||
       event.request.url.includes('aac.saavncdn.com')) {
