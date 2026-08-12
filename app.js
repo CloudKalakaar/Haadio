@@ -27,7 +27,72 @@ let ytPlayerReady = false;
 let progressInterval = null;
 let currentResolvingSongId = null;
 let isSwitchingTrack = false;
-const SILENT_AUDIO_URL = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+let wakeLockSentinel = null;
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator && !wakeLockSentinel) {
+            wakeLockSentinel = await navigator.wakeLock.request('screen');
+            console.log("Screen Wake Lock acquired.");
+            if (wakeLockSentinel) {
+                wakeLockSentinel.addEventListener('release', () => {
+                    wakeLockSentinel = null;
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Screen Wake Lock error:", err);
+    }
+}
+
+async function releaseWakeLock() {
+    try {
+        if (wakeLockSentinel) {
+            await wakeLockSentinel.release();
+            wakeLockSentinel = null;
+            console.log("Screen Wake Lock released.");
+        }
+    } catch (err) {
+        console.warn("Screen Wake Lock release error:", err);
+    }
+}
+
+let SILENT_AUDIO_BLOB_URL = null;
+function getSilentAudioBlobUrl() {
+    if (!SILENT_AUDIO_BLOB_URL) {
+        const sampleRate = 8000;
+        const numChannels = 1;
+        const bitsPerSample = 16;
+        const durationSeconds = 3;
+        const numSamples = sampleRate * durationSeconds;
+        const dataLength = numSamples * (bitsPerSample / 8);
+        const buffer = new ArrayBuffer(44 + dataLength);
+        const view = new DataView(buffer);
+        
+        function writeString(offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + dataLength, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
+        view.setUint16(32, numChannels * (bitsPerSample / 8), true);
+        view.setUint16(34, bitsPerSample, true);
+        writeString(36, 'data');
+        view.setUint32(40, dataLength, true);
+
+        const blob = new Blob([buffer], { type: 'audio/wav' });
+        SILENT_AUDIO_BLOB_URL = URL.createObjectURL(blob);
+    }
+    return SILENT_AUDIO_BLOB_URL;
+}
 
 function isYouTubeSong(song) {
     return song && (song.id.startsWith('itunes-') || song.ytVideoId);
@@ -636,7 +701,7 @@ async function resolveYoutubeId(song) {
     }
     
     console.log(`Resolving YouTube IDs for: ${song.title} - ${song.artist}`);
-    const searchQuery = `${song.title} ${song.artist}`;
+    const searchQuery = `${song.title} ${song.artist} Topic`;
     const searchUrls = [
         `https://api.piped.private.coffee/search?q=${encodeURIComponent(searchQuery)}&filter=music_songs`,
         `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(searchQuery)}&filter=music_songs`,
@@ -963,8 +1028,9 @@ function playSong() {
             startProgressLoop();
             
             // Loop silent audio stream to keep browser tab and Lock Screen Media Controls awake
-            if (audio.src !== SILENT_AUDIO_URL) {
-                audio.src = SILENT_AUDIO_URL;
+            const silentUrl = getSilentAudioBlobUrl();
+            if (audio.src !== silentUrl) {
+                audio.src = silentUrl;
                 audio.loop = true;
             }
             audio.play().then(() => {
@@ -977,10 +1043,12 @@ function playSong() {
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = "playing";
                 }
+                requestWakeLock();
             });
         } else {
             console.warn("YouTube player not ready, playing silent backing stream...");
-            audio.src = SILENT_AUDIO_URL;
+            const silentUrl = getSilentAudioBlobUrl();
+            audio.src = silentUrl;
             audio.loop = true;
             audio.play().catch(e => console.warn(e));
         }
