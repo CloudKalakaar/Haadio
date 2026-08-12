@@ -896,22 +896,6 @@ async function loadSong(index) {
     updateMediaSession();
     
     if (isYouTubeSong(song)) {
-        // Phase 1: Immediately start native HTML5 audio with iTunes preview URL for instant background-safe playback
-        // This ensures the OS always sees an active audio element (never pauses on minimize/lock)
-        if (song.url) {
-            trackArtist.textContent = song.artist + " (Preview)";
-            applyMarquee(trackArtist);
-            audio.src = song.url;
-            audio.loop = false;
-            audio.load();
-            if (shouldPlay) {
-                isPlaying = true;
-                playSong();
-            }
-        }
-        
-        // Phase 2: Attempt to resolve a full-length direct audio stream in background
-        // If found, replace the preview seamlessly. If not found, the preview continues.
         trackArtist.textContent = "Sourcing full track...";
         applyMarquee(trackArtist);
         
@@ -921,43 +905,47 @@ async function loadSong(index) {
             if (currentResolvingSongId !== songId) return;
             
             if (ytId) {
-                console.log(`Resolved YouTube Video ID: ${ytId}, fetching direct audio stream...`);
-                const directAudioUrl = await resolveDirectAudioStream(ytId);
+                console.log(`Resolved YouTube Video ID: ${ytId}`);
+                trackArtist.textContent = song.artist;
+                applyMarquee(trackArtist);
                 
-                if (currentResolvingSongId !== songId) return;
-                
-                if (directAudioUrl) {
-                    console.log("Full stream resolved — switching native audio to full track.");
-                    trackArtist.textContent = song.artist;
-                    applyMarquee(trackArtist);
-                    const currentTime = audio.currentTime;
-                    audio.src = directAudioUrl;
-                    audio.loop = false;
-                    audio.load();
-                    if (shouldPlay || isPlaying) {
+                if (ytPlayer && ytPlayerReady) {
+                    progressBar.value = 0;
+                    currentTimeEl.textContent = "0:00";
+                    totalTimeEl.textContent = "0:00";
+                    if (shouldPlay) {
                         isPlaying = true;
-                        audio.play().catch(e => console.warn("Full stream play failed:", e));
-                    }
-                    // Cue the YouTube iframe for visual sync (no audio — audio.src is the native stream)
-                    if (ytPlayer && ytPlayerReady) {
+                        ytPlayer.loadVideoById(ytId);
+                        playSong();
+                    } else {
                         ytPlayer.cueVideoById(ytId);
                     }
-                } else {
-                    // Direct stream not available — stay on iTunes preview
-                    console.warn("Direct stream unavailable, keeping iTunes preview.");
-                    trackArtist.textContent = song.artist + " (Preview)";
-                    applyMarquee(trackArtist);
                 }
             } else {
-                console.warn("YouTube ID resolution failed — keeping iTunes preview.");
+                // YouTube ID resolution failed — fall back to iTunes 30s preview
+                console.warn("YouTube ID resolution failed, falling back to iTunes preview");
                 trackArtist.textContent = song.artist + " (Preview)";
                 applyMarquee(trackArtist);
+                audio.src = song.url;
+                audio.loop = false;
+                audio.load();
+                if (shouldPlay) {
+                    isPlaying = true;
+                    playSong();
+                }
             }
         } catch (e) {
             console.error("YouTube resolution error:", e);
             if (currentResolvingSongId !== songId) return;
             trackArtist.textContent = song.artist + " (Preview)";
             applyMarquee(trackArtist);
+            audio.src = song.url;
+            audio.loop = false;
+            audio.load();
+            if (shouldPlay) {
+                isPlaying = true;
+                playSong();
+            }
         }
     } else {
         if (song.audioBlob) {
@@ -1073,26 +1061,38 @@ function resetPlayStateToPaused() {
 function playSong() {
     if (songs.length === 0 || !songs[currentSongIndex]) return;
     consecutiveFailures = 0;
+    const song = songs[currentSongIndex];
     isPlaying = true;
     playBtn.innerHTML = '<i class="fas fa-pause"></i>';
     record.classList.add('playing');
     
-    // Always play through native HTML5 audio element — this is what keeps background audio alive
-    // audio.src is set to either:
-    //   a) iTunes 30s preview URL (persistent CDN, always works)
-    //   b) Direct Piped/Invidious stream URL (if resolved)
-    //   c) JioSaavn direct stream URL (for search results)
-    if (audio.src && audio.src !== '' && audio.src !== window.location.href) {
+    if (isYouTubeSong(song) && song.ytVideoId) {
+        // Full track via YouTube iframe — play it and keep silent audio alive for lock screen
+        if (ytPlayer && ytPlayerReady && typeof ytPlayer.playVideo === 'function') {
+            ytPlayer.playVideo();
+            startProgressLoop();
+            const silentUrl = getSilentAudioBlobUrl();
+            if (audio.src !== silentUrl) {
+                audio.src = silentUrl;
+                audio.loop = true;
+            }
+            audio.play().then(() => {
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
+                requestWakeLock();
+            }).catch(e => {
+                console.warn("Silent audio keepalive deferred:", e);
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
+                requestWakeLock();
+            });
+        }
+    } else if (audio.src && audio.src !== '' && audio.src !== window.location.href) {
+        // Native audio — JioSaavn direct stream / iTunes preview fallback
         audio.loop = false;
         const playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {
                 isPlaying = true;
-                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                record.classList.add('playing');
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.playbackState = "playing";
-                }
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing";
                 startProgressLoop();
                 requestWakeLock();
             }).catch(e => {
