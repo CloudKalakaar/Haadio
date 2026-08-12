@@ -757,6 +757,8 @@ async function resolveYoutubeId(song) {
     return null;
 }
 
+// Resolves a direct audio stream URL from Piped/Invidious for a given YouTube video ID
+// Returns a short-lived CDN URL suitable for immediate playback
 async function resolveDirectAudioStream(videoId) {
     if (!videoId) return null;
     const streamUrls = [
@@ -767,23 +769,30 @@ async function resolveDirectAudioStream(videoId) {
     ];
     
     const streamPromises = streamUrls.map(async (url) => {
-        const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
+        const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         
+        // Piped format
         if (data.audioStreams && Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+            // Prefer opus > m4a > first available
+            const opus = data.audioStreams.find(s => s.mimeType && s.mimeType.includes('opus') && s.bitrate >= 100000);
             const m4a = data.audioStreams.find(s => s.mimeType && s.mimeType.includes('audio/mp4'));
-            return m4a ? m4a.url : data.audioStreams[0].url;
+            const chosen = opus || m4a || data.audioStreams[0];
+            if (chosen && chosen.url) return chosen.url;
         }
+        // Invidious format
         if (data.adaptiveFormats && Array.isArray(data.adaptiveFormats)) {
-            const audioFormat = data.adaptiveFormats.find(f => f.type && f.type.includes('audio'));
-            if (audioFormat && audioFormat.url) return audioFormat.url;
+            const audioFormats = data.adaptiveFormats.filter(f => f.type && f.type.includes('audio'));
+            audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+            if (audioFormats[0] && audioFormats[0].url) return audioFormats[0].url;
         }
         throw new Error("No audio stream found");
     });
     
     try {
-        return await Promise.any(streamPromises);
+        const url = await Promise.any(streamPromises);
+        return url || null;
     } catch (e) {
         console.warn("Direct audio stream resolution failed:", e);
         return null;
@@ -887,76 +896,68 @@ async function loadSong(index) {
     updateMediaSession();
     
     if (isYouTubeSong(song)) {
+        // Phase 1: Immediately start native HTML5 audio with iTunes preview URL for instant background-safe playback
+        // This ensures the OS always sees an active audio element (never pauses on minimize/lock)
+        if (song.url) {
+            trackArtist.textContent = song.artist + " (Preview)";
+            applyMarquee(trackArtist);
+            audio.src = song.url;
+            audio.loop = false;
+            audio.load();
+            if (shouldPlay) {
+                isPlaying = true;
+                playSong();
+            }
+        }
+        
+        // Phase 2: Attempt to resolve a full-length direct audio stream in background
+        // If found, replace the preview seamlessly. If not found, the preview continues.
         trackArtist.textContent = "Sourcing full track...";
         applyMarquee(trackArtist);
         
         try {
             const ytId = await resolveYoutubeId(song);
             
-            // If the user skipped to another song while we were waiting
             if (currentResolvingSongId !== songId) return;
             
             if (ytId) {
-                console.log(`Resolved YouTube Video ID: ${ytId}`);
-                trackArtist.textContent = song.artist;
-                applyMarquee(trackArtist);
-                
-                // Fetch direct native audio stream to ensure continuous playback when app is minimized / screen locked
+                console.log(`Resolved YouTube Video ID: ${ytId}, fetching direct audio stream...`);
                 const directAudioUrl = await resolveDirectAudioStream(ytId);
                 
                 if (currentResolvingSongId !== songId) return;
                 
                 if (directAudioUrl) {
-                    console.log("Found direct native audio stream for background playback!");
+                    console.log("Full stream resolved — switching native audio to full track.");
+                    trackArtist.textContent = song.artist;
+                    applyMarquee(trackArtist);
+                    const currentTime = audio.currentTime;
                     audio.src = directAudioUrl;
                     audio.loop = false;
                     audio.load();
-                    if (shouldPlay) {
+                    if (shouldPlay || isPlaying) {
                         isPlaying = true;
-                        playSong();
+                        audio.play().catch(e => console.warn("Full stream play failed:", e));
                     }
-                } else if (ytPlayer && ytPlayerReady) {
-                    console.log("Direct stream fallback to YouTube player embed.");
-                    progressBar.value = 0;
-                    currentTimeEl.textContent = "0:00";
-                    totalTimeEl.textContent = "0:00";
-                    if (shouldPlay) {
-                        isPlaying = true;
-                        ytPlayer.loadVideoById(ytId);
-                        playSong();
-                    } else {
+                    // Cue the YouTube iframe for visual sync (no audio — audio.src is the native stream)
+                    if (ytPlayer && ytPlayerReady) {
                         ytPlayer.cueVideoById(ytId);
                     }
                 } else {
-                    audio.src = song.url;
-                    audio.load();
-                    if (shouldPlay) {
-                        isPlaying = true;
-                        playSong();
-                    }
+                    // Direct stream not available — stay on iTunes preview
+                    console.warn("Direct stream unavailable, keeping iTunes preview.");
+                    trackArtist.textContent = song.artist + " (Preview)";
+                    applyMarquee(trackArtist);
                 }
             } else {
-                console.warn("YouTube ID resolution failed, falling back to iTunes preview");
+                console.warn("YouTube ID resolution failed — keeping iTunes preview.");
                 trackArtist.textContent = song.artist + " (Preview)";
                 applyMarquee(trackArtist);
-                audio.src = song.url;
-                audio.load();
-                if (shouldPlay) {
-                    isPlaying = true;
-                    playSong();
-                }
             }
         } catch (e) {
             console.error("YouTube resolution error:", e);
             if (currentResolvingSongId !== songId) return;
             trackArtist.textContent = song.artist + " (Preview)";
             applyMarquee(trackArtist);
-            audio.src = song.url;
-            audio.load();
-            if (shouldPlay) {
-                isPlaying = true;
-                playSong();
-            }
         }
     } else {
         if (song.audioBlob) {
@@ -1004,18 +1005,12 @@ function startProgressLoop() {
     if (progressInterval) clearInterval(progressInterval);
     progressInterval = setInterval(() => {
         if (!isPlaying) return;
-        const song = songs[currentSongIndex];
-        if (song && isYouTubeSong(song) && song.ytVideoId) {
-            if (ytPlayer && ytPlayerReady && typeof ytPlayer.getCurrentTime === 'function') {
-                const currentTime = ytPlayer.getCurrentTime();
-                const duration = ytPlayer.getDuration();
-                if (duration > 0) {
-                    const progressPercent = (currentTime / duration) * 100;
-                    progressBar.value = progressPercent;
-                    currentTimeEl.textContent = formatTime(currentTime);
-                    totalTimeEl.textContent = formatTime(duration);
-                }
-            }
+        // Always prefer native audio element for progress tracking (background-safe)
+        if (!audio.paused && audio.duration > 0) {
+            const progressPercent = (audio.currentTime / audio.duration) * 100;
+            progressBar.value = progressPercent;
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+            totalTimeEl.textContent = formatTime(audio.duration);
         }
     }, 500);
 }
@@ -1078,15 +1073,16 @@ function resetPlayStateToPaused() {
 function playSong() {
     if (songs.length === 0 || !songs[currentSongIndex]) return;
     consecutiveFailures = 0;
-    const song = songs[currentSongIndex];
     isPlaying = true;
     playBtn.innerHTML = '<i class="fas fa-pause"></i>';
     record.classList.add('playing');
     
-    const silentUrl = getSilentAudioBlobUrl();
-    const hasDirectAudio = audio.src && audio.src !== '' && audio.src !== window.location.href && audio.src !== silentUrl;
-    
-    if (hasDirectAudio) {
+    // Always play through native HTML5 audio element — this is what keeps background audio alive
+    // audio.src is set to either:
+    //   a) iTunes 30s preview URL (persistent CDN, always works)
+    //   b) Direct Piped/Invidious stream URL (if resolved)
+    //   c) JioSaavn direct stream URL (for search results)
+    if (audio.src && audio.src !== '' && audio.src !== window.location.href) {
         audio.loop = false;
         const playPromise = audio.play();
         if (playPromise !== undefined) {
@@ -1097,39 +1093,23 @@ function playSong() {
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.playbackState = "playing";
                 }
+                startProgressLoop();
                 requestWakeLock();
             }).catch(e => {
                 console.warn("Playback play() interrupted or loading:", e);
-                resetPlayStateToPaused();
-            });
-        }
-    } else if (isYouTubeSong(song) && song.ytVideoId) {
-        if (ytPlayer && ytPlayerReady && typeof ytPlayer.playVideo === 'function') {
-            ytPlayer.playVideo();
-            startProgressLoop();
-            
-            // Loop silent audio stream to keep browser tab and Lock Screen Media Controls awake
-            if (audio.src !== silentUrl) {
-                audio.src = silentUrl;
-                audio.loop = true;
-            }
-            audio.play().then(() => {
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.playbackState = "playing";
+                if (audio.readyState < 2) {
+                    const autoPlayOnReady = () => {
+                        if (isPlaying) {
+                            audio.play()
+                                .then(() => { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = "playing"; })
+                                .catch(() => resetPlayStateToPaused());
+                        }
+                    };
+                    audio.addEventListener('canplay', autoPlayOnReady, { once: true });
+                } else {
+                    resetPlayStateToPaused();
                 }
-                requestWakeLock();
-            }).catch(e => {
-                console.warn("Silent audio playback deferred:", e);
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.playbackState = "playing";
-                }
-                requestWakeLock();
             });
-        } else {
-            console.warn("YouTube player not ready, playing silent backing stream...");
-            audio.src = silentUrl;
-            audio.loop = true;
-            audio.play().catch(e => console.warn(e));
         }
     }
 }
@@ -1765,15 +1745,20 @@ if (downloadBtn) {
         downloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         downloadBtn.style.pointerEvents = 'none';
         
+        // Run download entirely in background — NEVER touch the audio element
+        const downloadUrl = (audio.src && audio.src !== '' && audio.src !== window.location.href && audio.src !== getSilentAudioBlobUrl()) ? audio.src : song.url;
+        const imageUrl = song.image || null;
+        
         try {
-            const audioResponse = await fetch(song.url);
+            // Fetch audio blob without affecting the live audio stream
+            const audioResponse = await fetch(downloadUrl);
             if (!audioResponse.ok) throw new Error('Audio download failed');
             const audioBlob = await audioResponse.blob();
             
             let imageBlob = null;
-            if (song.image) {
+            if (imageUrl) {
                 try {
-                    const imageResponse = await fetch(song.image);
+                    const imageResponse = await fetch(imageUrl);
                     if (imageResponse.ok) {
                         imageBlob = await imageResponse.blob();
                     }
@@ -1784,13 +1769,14 @@ if (downloadBtn) {
             
             await saveOfflineSong(song, audioBlob, imageBlob);
             updateDownloadButtonState();
+            showToast(`"${song.title}" saved for offline play!`);
             
             if (!sections.downloads.classList.contains('hidden')) {
                 renderDownloads();
             }
         } catch (err) {
             console.error('Download error:', err);
-            alert('Failed to download song for offline play.');
+            showToast('Download failed. Please try again.');
         } finally {
             downloadBtn.style.pointerEvents = 'auto';
         }
