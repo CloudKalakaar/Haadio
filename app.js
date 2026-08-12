@@ -1147,7 +1147,7 @@ function renderPlaylist() {
 let consecutiveFailures = 0;
 
 function handleTrackPlaybackError() {
-    console.warn("Audio playback error encountered for current track.");
+    console.warn("Audio playback error encountered.");
     pauseSong();
     showToast("Unable to play track stream.");
 }
@@ -2520,8 +2520,7 @@ window.onYouTubeIframeAPIReady = function() {
                 console.warn("YouTube Player error:", e.data);
                 const song = songs[currentSongIndex];
                 
-                // Fallback immediately to iTunes 30s preview of this song
-                console.warn("Full track unavailable via YouTube embed, playing preview...");
+                console.warn("Full YouTube track blocked/unavailable, falling back to iTunes preview");
                 if (isPlaying) {
                     showToast("Full track unavailable, playing preview...");
                 }
@@ -2534,7 +2533,7 @@ window.onYouTubeIframeAPIReady = function() {
                     audio.load();
                     if (isPlaying) {
                         audio.play().catch(err => {
-                            console.warn("Preview play failed:", err);
+                            console.warn("Preview playback error:", err);
                             pauseSong();
                         });
                     }
