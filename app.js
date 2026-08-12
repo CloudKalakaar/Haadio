@@ -29,7 +29,7 @@ let currentResolvingSongId = null;
 const SILENT_AUDIO_URL = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
 function isYouTubeSong(song) {
-    return song && !!song.ytVideoId;
+    return song && (song.id.startsWith('itunes-') || song.ytVideoId);
 }
 
 const playBtn = document.getElementById('play-btn');
@@ -2520,38 +2520,26 @@ window.onYouTubeIframeAPIReady = function() {
                 console.warn("YouTube Player error:", e.data);
                 const song = songs[currentSongIndex];
                 
-                // If there are other candidates to try, try them before falling back
-                if (song && isYouTubeSong(song) && song.ytVideoIds && song.ytVideoIds.length > 0) {
-                    song.ytCurrentCandidateIndex = (song.ytCurrentCandidateIndex || 0) + 1;
-                    if (song.ytCurrentCandidateIndex < song.ytVideoIds.length) {
-                        const nextId = song.ytVideoIds[song.ytCurrentCandidateIndex];
-                        console.log(`Retrying next YouTube candidate index ${song.ytCurrentCandidateIndex}: ${nextId}`);
-                        song.ytVideoId = nextId;
-                        if (ytPlayer && ytPlayerReady) {
-                            if (isPlaying) {
-                                ytPlayer.loadVideoById(nextId);
-                            } else {
-                                ytPlayer.cueVideoById(nextId);
-                            }
-                        }
-                        return; // Exit, do not fall back yet
-                    }
-                }
-                
-                // Fallback to iTunes 30s preview
-                console.warn("All YouTube candidates failed or unavailable, falling back to iTunes preview");
-                
-                // ONLY show the toast/popup if the user is actively trying to play music
+                // Fallback immediately to iTunes 30s preview of this song
+                console.warn("Full track unavailable via YouTube embed, playing preview...");
                 if (isPlaying) {
-                    showToast("Full track playback failed, playing preview...");
+                    showToast("Full track unavailable, playing preview...");
                 }
                 
                 if (song && song.url) {
+                    trackArtist.textContent = song.artist + " (Preview)";
+                    applyMarquee(trackArtist);
                     audio.src = song.url;
                     audio.loop = false;
+                    audio.load();
                     if (isPlaying) {
-                        audio.play().catch(err => console.warn(err));
+                        audio.play().catch(err => {
+                            console.warn("Preview play failed:", err);
+                            pauseSong();
+                        });
                     }
+                } else {
+                    pauseSong();
                 }
             }
         }
