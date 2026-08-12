@@ -637,70 +637,44 @@ async function resolveYoutubeId(song) {
     const searchQuery = `${song.title} ${song.artist}`;
     const searchUrls = [
         `https://api.piped.private.coffee/search?q=${encodeURIComponent(searchQuery)}&filter=music_songs`,
-        `https://yt.chocolatemoo53.com/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`,
-        `https://inv.zoomerville.com/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`
+        `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(searchQuery)}&filter=music_songs`,
+        `https://yt.drgnz.club/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`,
+        `https://invidious.nerdvpn.de/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`,
+        `https://inv.tux.stream/api/v1/search?q=${encodeURIComponent(searchQuery)}&type=video`
     ];
     
     let candidateIds = [];
     
-    for (const url of searchUrls) {
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.items && data.items.length > 0) {
-                    for (const item of data.items) {
-                        if (item.url) {
-                            const match = item.url.match(/[?&]v=([^&#]+)/) || item.url.match(/watch\?v=([^&#]+)/);
-                            const id = match ? match[1] : item.url.replace('/watch?v=', '');
-                            if (id && !candidateIds.includes(id)) {
-                                candidateIds.push(id);
-                            }
-                        }
-                    }
-                }
-                if (Array.isArray(data) && data.length > 0) {
-                    for (const item of data) {
-                        if (item.videoId && !candidateIds.includes(item.videoId)) {
-                            candidateIds.push(item.videoId);
-                        }
-                    }
-                }
-                if (candidateIds.length > 0) {
-                    break;
+    const searchPromises = searchUrls.map(async (url) => {
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const ids = [];
+        if (data.items && Array.isArray(data.items)) {
+            for (const item of data.items) {
+                if (item.url) {
+                    const match = item.url.match(/[?&]v=([^&#]+)/) || item.url.match(/watch\?v=([^&#]+)/);
+                    const id = match ? match[1] : item.url.replace('/watch?v=', '');
+                    if (id && !ids.includes(id)) ids.push(id);
                 }
             }
-        } catch (err) {
-            console.warn(`Search URL ${url} failed:`, err);
         }
-    }
-    
-    // Fallback search with "lyrics" or "audio" if no results
-    if (candidateIds.length === 0) {
-        const lyricsQuery = `${song.title} ${song.artist} lyrics`;
-        try {
-            const res = await fetch(`https://api.piped.private.coffee/search?q=${encodeURIComponent(lyricsQuery)}&filter=music_songs`, { signal: AbortSignal.timeout(4000) });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.items && data.items.length > 0) {
-                    for (const item of data.items) {
-                        if (item.url) {
-                            const match = item.url.match(/[?&]v=([^&#]+)/) || item.url.match(/watch\?v=([^&#]+)/);
-                            const id = match ? match[1] : item.url.replace('/watch?v=', '');
-                            if (id && !candidateIds.includes(id)) {
-                                candidateIds.push(id);
-                            }
-                        }
-                    }
-                }
+        if (Array.isArray(data)) {
+            for (const item of data) {
+                if (item.videoId && !ids.includes(item.videoId)) ids.push(item.videoId);
             }
-        } catch (err) {
-            console.warn("Lyrics search fallback failed:", err);
         }
+        if (ids.length > 0) return ids;
+        throw new Error("No items in response");
+    });
+
+    try {
+        candidateIds = await Promise.any(searchPromises);
+    } catch (err) {
+        console.warn("All YouTube resolution search endpoints failed or timed out:", err);
     }
     
     if (candidateIds.length > 0) {
-        // Keep up to 5 unique candidates
         song.ytVideoIds = candidateIds.slice(0, 5);
         song.ytCurrentCandidateIndex = 0;
         song.ytVideoId = song.ytVideoIds[0];
@@ -1197,6 +1171,7 @@ audio.addEventListener('ended', () => {
     nextSong();
 });
 audio.addEventListener('error', (e) => {
+    if (audio.error && (audio.error.code === 1 || audio.error.code === MediaError.MEDIA_ERR_ABORTED)) return;
     if (audio.src && audio.src.startsWith('data:audio')) return;
     handleTrackPlaybackError();
 });
