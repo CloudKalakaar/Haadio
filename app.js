@@ -29,7 +29,7 @@ let currentResolvingSongId = null;
 const SILENT_AUDIO_URL = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
 function isYouTubeSong(song) {
-    return song && (song.id.startsWith('itunes-') || song.ytVideoId);
+    return song && !!song.ytVideoId;
 }
 
 const playBtn = document.getElementById('play-btn');
@@ -1147,18 +1147,9 @@ function renderPlaylist() {
 let consecutiveFailures = 0;
 
 function handleTrackPlaybackError() {
-    consecutiveFailures++;
-    console.warn(`Audio playback error (consecutive failures: ${consecutiveFailures})`);
-    if (consecutiveFailures >= 3) {
-        showToast("Unable to play selected tracks. Stopped auto-skipping.");
-        consecutiveFailures = 0;
-        pauseSong();
-    } else {
-        showToast("Track unplayable, skipping...");
-        setTimeout(() => {
-            nextSong();
-        }, 500);
-    }
+    console.warn("Audio playback error encountered for current track.");
+    pauseSong();
+    showToast("Unable to play track stream.");
 }
 
 // Event Listeners
